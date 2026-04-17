@@ -1,0 +1,850 @@
+<!DOCTYPE html>
+<html lang="id" data-theme="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="Trackify — Personal dashboard untuk melacak target, kebiasaan, jurnal, dan pertumbuhan pribadi.">
+  <title>Trackify — Personal Dashboard</title>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<!-- ══════════════════════════════════════════
+     SIDEBAR (desktop)
+     ══════════════════════════════════════════ -->
+<aside class="sidebar" id="sidebar" role="navigation" aria-label="Navigasi utama">
+  <div class="sidebar-logo">
+    <div class="logo-mark">
+      <div class="logo-icon" aria-hidden="true">✦</div>
+      <div>
+        <div class="logo-text">Trackify</div>
+        <div class="logo-sub">Personal Dashboard</div>
+      </div>
+    </div>
+  </div>
+
+  <nav class="sidebar-nav">
+    <div class="sidebar-search-wrap">
+      <button class="sidebar-search-btn" onclick="openSearch()" aria-label="Cari di semua menu">
+        <span class="nav-icon" aria-hidden="true">🔍</span>
+        <span>Cari...</span>
+        <kbd class="search-kbd">⌘K</kbd>
+      </button>
+    </div>
+    <div class="nav-section" role="heading" aria-level="2">Overview</div>
+    <button class="nav-btn active" onclick="showPage('dashboard',this)"
+            aria-current="page" aria-label="Dashboard Utama">
+      <span class="nav-icon" aria-hidden="true">📊</span> Dashboard
+    </button>
+
+    <div class="nav-section" role="heading" aria-level="2">Tujuan &amp; Kebiasaan</div>
+    <button class="nav-btn" onclick="showPage('target',this)"
+            aria-current="false" aria-label="Target Hidup">
+      <span class="nav-icon" aria-hidden="true">🎯</span> Target Hidup
+    </button>
+    <button class="nav-btn" onclick="showPage('habit',this)"
+            aria-current="false" aria-label="Habit Tracker">
+      <span class="nav-icon" aria-hidden="true">🔥</span> Habit Tracker
+    </button>
+    <button class="nav-btn" onclick="showPage('todo',this)"
+            aria-current="false" aria-label="To-Do List">
+      <span class="nav-icon" aria-hidden="true">✅</span> To-Do List
+    </button>
+
+    <div class="nav-section" role="heading" aria-level="2">Pertumbuhan</div>
+    <button class="nav-btn" onclick="showPage('reward',this)"
+            aria-current="false" aria-label="Reward System">
+      <span class="nav-icon" aria-hidden="true">🏆</span> Reward System
+    </button>
+    <button class="nav-btn" onclick="showPage('learning',this)"
+            aria-current="false" aria-label="Learning Tracker">
+      <span class="nav-icon" aria-hidden="true">📚</span> Learning Tracker
+    </button>
+
+    <div class="nav-section" role="heading" aria-level="2">Refleksi</div>
+    <button class="nav-btn" onclick="showPage('journal',this)"
+            aria-current="false" aria-label="Daily Journal">
+      <span class="nav-icon" aria-hidden="true">📝</span> Daily Journal
+    </button>
+    <button class="nav-btn" onclick="showPage('reflection',this)"
+            aria-current="false" aria-label="Refleksi Mingguan">
+      <span class="nav-icon" aria-hidden="true">🔮</span> Refleksi
+    </button>
+
+    <div class="nav-section" role="heading" aria-level="2">Sosial &amp; Emosi</div>
+    <button class="nav-btn" onclick="showPage('sosial',this)"
+            aria-current="false" aria-label="Komunikasi dan Sosial">
+      <span class="nav-icon" aria-hidden="true">💬</span> Komunikasi
+    </button>
+    <button class="nav-btn" onclick="showPage('emosi',this)"
+            aria-current="false" aria-label="Tracker Emosi">
+      <span class="nav-icon" aria-hidden="true">🌊</span> Tracker Emosi
+    </button>
+
+    <div class="nav-section" role="heading" aria-level="2">Pengaturan</div>
+    <button class="nav-btn" onclick="showPage('settings',this)"
+            aria-current="false" aria-label="Pengaturan Aplikasi">
+      <span class="nav-icon" aria-hidden="true">⚙️</span> Settings
+    </button>
+  </nav>
+
+  <div class="sidebar-footer">
+    <div class="avatar" aria-hidden="true">✦</div>
+    <div>
+      <div style="font-size:12.5px;color:var(--text2);font-weight:600">Personal Space</div>
+      <div style="font-size:10.5px;color:var(--text3)">Versi 1.13</div>
+    </div>
+    <button class="theme-toggle" onclick="toggleTheme()" id="theme-btn"
+            aria-label="Ganti ke Mode Terang" title="Ganti tema" style="margin-left:auto">🌙</button>
+  </div>
+</aside>
+
+<!-- ══════════════════════════════════════════
+     TOPBAR MOBILE
+     ══════════════════════════════════════════ -->
+<header class="topbar" id="topbar" role="banner">
+  <button class="hamburger" id="hamburger" onclick="toggleSidebar()"
+          aria-label="Buka navigasi" aria-expanded="false" aria-controls="sidebar">
+    <div class="ham-line" aria-hidden="true"></div>
+    <div class="ham-line" aria-hidden="true"></div>
+    <div class="ham-line" aria-hidden="true"></div>
+  </button>
+  <div class="topbar-logo" aria-hidden="true">
+    <div class="logo-icon">✦</div>
+    <span class="logo-text">Trackify</span>
+  </div>
+  <button class="topbar-search" onclick="openSearch()" aria-label="Cari">🔍</button>
+  <button class="topbar-theme" onclick="toggleTheme()" id="theme-btn-mobile"
+          aria-label="Ganti ke Mode Terang">🌙</button>
+</header>
+
+<!-- Overlay saat sidebar mobile terbuka -->
+<div class="overlay" id="overlay" onclick="closeSidebar()"
+     role="presentation" aria-hidden="true"></div>
+
+<!-- ══════════════════════════════════════════
+     MODAL REWARD
+     ══════════════════════════════════════════ -->
+<div class="reward-modal-bg" id="reward-modal-bg"
+     role="dialog" aria-modal="true" aria-labelledby="rm-title"
+     aria-hidden="true" onclick="closeRewardModal()">
+  <div class="reward-modal" onclick="event.stopPropagation()" tabindex="-1">
+    <div class="reward-modal-icon" id="rm-icon" aria-hidden="true">🎉</div>
+    <div class="confetti" id="rm-confetti" aria-hidden="true">🎊 🏆 🎊</div>
+    <h2 class="reward-modal-title" id="rm-title">Selamat!</h2>
+    <p class="reward-modal-desc" id="rm-desc">Kamu berhasil mencapai milestone!</p>
+    <button class="btn btn-primary" onclick="closeRewardModal()">🙌 Awesome!</button>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════
+     SEARCH MODAL
+     ══════════════════════════════════════════ -->
+<div class="search-modal-bg" id="search-modal-bg"
+     role="dialog" aria-modal="true" aria-label="Pencarian global"
+     aria-hidden="true" onclick="closeSearch()">
+  <div class="search-modal" onclick="event.stopPropagation()">
+    <div class="search-input-wrap">
+      <span class="search-input-icon" aria-hidden="true">🔍</span>
+      <input type="search" id="search-input" class="search-input"
+             placeholder="Cari target, habit, jurnal, tugas..."
+             autocomplete="off" spellcheck="false"
+             oninput="runSearch(this.value)"
+             aria-label="Input pencarian" aria-autocomplete="list"
+             aria-controls="search-results">
+      <button class="search-close-btn" onclick="closeSearch()" aria-label="Tutup pencarian">✕</button>
+    </div>
+    <div class="search-results" id="search-results" role="list" aria-live="polite">
+      <div class="search-empty" id="search-hint">
+        <div class="search-empty-icon">🔍</div>
+        Ketik untuk mencari di semua menu
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════
+     KONTEN UTAMA
+     ══════════════════════════════════════════ -->
+<main class="main" id="main-content">
+
+  <!-- ── DASHBOARD ─────────────────────────── -->
+  <div id="page-dashboard" class="page active" role="region" aria-label="Dashboard Utama">
+    <div class="page-header">
+      <div>
+        <h1 class="page-title">Dashboard Utama</h1>
+        <p class="page-subtitle" id="dash-date-sub" aria-live="polite"></p>
+      </div>
+    </div>
+
+    <!-- Quick Actions -->
+    <section class="card" style="margin-bottom:16px" aria-label="Aksi Cepat">
+      <div class="card-title">⚡ Quick Actions</div>
+      <div class="quick-actions-grid" id="quick-actions-grid">
+        <button class="quick-action-btn" onclick="quickJournal()" aria-label="Tulis jurnal hari ini">
+          <div class="qa-icon" style="background:rgba(124,110,247,.15)" aria-hidden="true">📝</div>
+          <div class="qa-label">Tulis Jurnal</div>
+          <div class="qa-sub">Refleksikan hari ini</div>
+        </button>
+        <button class="quick-action-btn" onclick="quickHabit()" aria-label="Update habit hari ini">
+          <div class="qa-icon" style="background:rgba(34,197,94,.15)" aria-hidden="true">🔥</div>
+          <div class="qa-label">Check Habit</div>
+          <div class="qa-sub">Update kebiasaan</div>
+        </button>
+        <button class="quick-action-btn" onclick="quickTodo()" aria-label="Tambah tugas baru">
+          <div class="qa-icon" style="background:rgba(56,189,248,.15)" aria-hidden="true">✅</div>
+          <div class="qa-label">Tambah Tugas</div>
+          <div class="qa-sub">To-do baru</div>
+        </button>
+        <button class="quick-action-btn" onclick="quickLearning()" aria-label="Catat sesi belajar">
+          <div class="qa-icon" style="background:rgba(244,114,182,.15)" aria-hidden="true">📚</div>
+          <div class="qa-label">Catat Belajar</div>
+          <div class="qa-sub">Apa yang dipelajari?</div>
+        </button>
+        <button class="quick-action-btn" onclick="quickEmosi()" aria-label="Catat kondisi emosi">
+          <div class="qa-icon" style="background:rgba(245,158,11,.15)" aria-hidden="true">🌊</div>
+          <div class="qa-label">Catat Emosi</div>
+          <div class="qa-sub">Bagaimana perasaanmu?</div>
+        </button>
+        <button class="quick-action-btn" onclick="quickTarget()" aria-label="Tambah target baru">
+          <div class="qa-icon" style="background:rgba(124,110,247,.15)" aria-hidden="true">🎯</div>
+          <div class="qa-label">Tambah Target</div>
+          <div class="qa-sub">Goal baru</div>
+        </button>
+        <button class="quick-action-btn" onclick="showPage('reward', navBtn(4))" aria-label="Lihat reward dan streak">
+          <div class="qa-icon" style="background:rgba(245,158,11,.2)" aria-hidden="true">🏆</div>
+          <div class="qa-label">Lihat Reward</div>
+          <div class="qa-sub" id="qa-streak-sub">0 hari streak</div>
+        </button>
+        <button class="quick-action-btn" onclick="showPage('reflection', navBtn(7))" aria-label="Tulis refleksi mingguan">
+          <div class="qa-icon" style="background:rgba(184,170,255,.15)" aria-hidden="true">🔮</div>
+          <div class="qa-label">Refleksi</div>
+          <div class="qa-sub">Evaluasi minggu ini</div>
+        </button>
+      </div>
+    </section>
+
+    <!-- Metrik ringkasan -->
+    <section aria-label="Ringkasan metrik" class="grid3" style="margin-bottom:16px">
+      <div class="metric-card" onclick="showPage('target',navBtn(1))" role="button" tabindex="0"
+           onkeydown="if(event.key==='Enter'||event.key===' ')showPage('target',navBtn(1))"
+           aria-label="Target Selesai — klik untuk lihat detail">
+        <div class="metric-icon purple" aria-hidden="true">🎯</div>
+        <div class="metric-val" id="d-target" aria-live="polite">0</div>
+        <div class="metric-lbl">Target Selesai</div>
+      </div>
+      <div class="metric-card" onclick="showPage('habit',navBtn(2))" role="button" tabindex="0"
+           onkeydown="if(event.key==='Enter'||event.key===' ')showPage('habit',navBtn(2))"
+           aria-label="Habit Bulan Ini — klik untuk lihat detail">
+        <div class="metric-icon green" aria-hidden="true">🔥</div>
+        <div class="metric-val" id="d-habit" aria-live="polite">0%</div>
+        <div class="metric-lbl">Habit Bulan Ini</div>
+      </div>
+      <div class="metric-card" onclick="showPage('todo',navBtn(3))" role="button" tabindex="0"
+           onkeydown="if(event.key==='Enter'||event.key===' ')showPage('todo',navBtn(3))"
+           aria-label="To-Do Selesai — klik untuk lihat detail">
+        <div class="metric-icon blue" aria-hidden="true">✅</div>
+        <div class="metric-val" id="d-todo" aria-live="polite">0</div>
+        <div class="metric-lbl">To-Do Selesai</div>
+      </div>
+    </section>
+
+    <div class="grid2">
+      <section class="card" aria-label="Target terkini">
+        <div class="card-title">Target Terkini</div>
+        <div id="d-target-list" aria-live="polite"></div>
+      </section>
+      <section class="card" aria-label="Progress habit hari ini">
+        <div class="card-title">Progress Habit Hari Ini</div>
+        <div id="d-habit-progress" aria-live="polite"></div>
+      </section>
+    </div>
+
+    <div class="grid2">
+      <section class="card" aria-label="Jurnal hari ini">
+        <div class="card-title">Jurnal Hari Ini</div>
+        <div id="d-journal-preview" aria-live="polite"></div>
+      </section>
+      <section class="card" aria-label="To-Do list">
+        <div class="card-title">To-Do List</div>
+        <div id="d-todo-preview" aria-live="polite"></div>
+      </section>
+    </div>
+  </div>
+
+  <!-- ── TARGET HIDUP ─────────────────────── -->
+  <div id="page-target" class="page" role="region" aria-label="Target Hidup">
+    <div class="page-header">
+      <div>
+        <h1 class="page-title">🎯 Target Hidup</h1>
+        <p class="page-subtitle">Catat dan pantau tujuan hidupmu</p>
+      </div>
+    </div>
+    <section class="card" aria-label="Form tambah target">
+      <div class="card-title">Tambah Target Baru</div>
+      <div class="row-form">
+        <div>
+          <label for="t-name">Nama Target</label>
+          <input type="text" id="t-name" placeholder="Contoh: Baca 12 buku..."
+                 aria-required="true" onkeydown="if(event.key==='Enter')addTarget()">
+        </div>
+        <div>
+          <label for="t-deadline">Deadline</label>
+          <input type="date" id="t-deadline" aria-label="Tanggal deadline target">
+        </div>
+        <div>
+          <label for="t-status">Status</label>
+          <select id="t-status" aria-label="Status target">
+            <option value="on_progress">On Progress</option>
+            <option value="done">Selesai</option>
+          </select>
+        </div>
+      </div>
+      <button class="btn btn-primary" style="margin-top:16px" onclick="addTarget()">+ Tambah Target</button>
+    </section>
+    <section class="card" aria-label="Daftar semua target">
+      <div class="card-title">Semua Target</div>
+      <div class="table-wrap">
+        <table aria-label="Tabel target hidup">
+          <thead>
+            <tr>
+              <th scope="col">Target</th>
+              <th scope="col">Deadline</th>
+              <th scope="col">Status</th>
+              <th scope="col">Progress</th>
+              <th scope="col"><span class="sr-only">Aksi</span></th>
+            </tr>
+          </thead>
+          <tbody id="target-table" aria-live="polite"></tbody>
+        </table>
+      </div>
+    </section>
+  </div>
+
+  <!-- ── HABIT TRACKER ────────────────────── -->
+  <div id="page-habit" class="page" role="region" aria-label="Habit Tracker">
+    <div class="page-header">
+      <div>
+        <h1 class="page-title">🔥 Habit Tracker</h1>
+        <p class="page-subtitle">Bangun kebiasaan baik sehari-hari</p>
+      </div>
+    </div>
+    <section class="card" aria-label="Kelola habit">
+      <div class="card-title">Kelola Habit</div>
+      <div style="display:flex;gap:10px;align-items:flex-end;flex-wrap:wrap">
+        <div style="flex:1;min-width:160px">
+          <label for="new-habit">Habit Baru</label>
+          <input type="text" id="new-habit" placeholder="Nama habit baru..."
+                 aria-required="true" onkeydown="if(event.key==='Enter')addHabit()">
+        </div>
+        <button class="btn btn-primary btn-sm" onclick="addHabit()" aria-label="Tambah habit baru">+ Tambah</button>
+        <div style="flex:1;min-width:160px">
+          <label for="habit-date">Tambah Tanggal</label>
+          <input type="date" id="habit-date" aria-label="Pilih tanggal untuk ditambahkan ke tabel habit">
+        </div>
+        <button class="btn btn-sm" onclick="addHabitRow()" aria-label="Tambah baris tanggal ke tabel">+ Tanggal</button>
+      </div>
+    </section>
+    <section class="card" style="overflow-x:auto" aria-label="Tabel habit tracker">
+      <table id="habit-table" aria-label="Tabel habit tracker — klik sel untuk toggle status">
+        <thead id="habit-head"></thead>
+        <tbody id="habit-body" aria-live="polite"></tbody>
+      </table>
+    </section>
+  </div>
+
+  <!-- ── REWARD SYSTEM ────────────────────── -->
+  <div id="page-reward" class="page" role="region" aria-label="Reward System">
+    <div class="page-header">
+      <div>
+        <h1 class="page-title">🏆 Reward System</h1>
+        <p class="page-subtitle">Konsistensi membawa penghargaan!</p>
+      </div>
+    </div>
+
+    <div class="streak-display" role="status" aria-label="Status streak">
+      <div class="streak-fire" aria-hidden="true">🔥</div>
+      <div>
+        <div class="streak-num" id="streak-count" aria-label="Jumlah hari streak saat ini">0</div>
+        <div style="font-size:12px;color:var(--text3);font-weight:500">hari berturut-turut</div>
+      </div>
+      <div class="streak-info">
+        <div class="streak-title" id="streak-msg">Mulai streak-mu hari ini!</div>
+        <div class="streak-sub" id="streak-sub">Check habit &amp; jurnal untuk membangun streak</div>
+      </div>
+      <button class="btn btn-primary btn-sm" onclick="claimDailyStreak()" aria-label="Check in hari ini untuk membangun streak">
+        🎯 Check In Hari Ini
+      </button>
+    </div>
+
+    <div class="reward-cards" aria-label="Kartu reward">
+      <div class="reward-card" id="reward-7-card" aria-label="Reward 7 hari konsisten">
+        <div class="reward-icon" aria-hidden="true">🌟</div>
+        <div class="reward-title">7 Hari Konsisten</div>
+        <div class="reward-desc">Bertahan selama 7 hari berturut-turut dan dapatkan badge Consistency Starter!</div>
+        <div class="reward-prog-bar" role="progressbar" aria-valuemin="0" aria-valuemax="100"
+             aria-label="Progress menuju 7 hari">
+          <div class="reward-prog-fill" id="prog-7" style="width:0%"></div>
+        </div>
+        <div class="reward-days" id="days-7" aria-live="polite">0 / 7 hari</div>
+      </div>
+      <div class="reward-card" id="reward-30-card" aria-label="Reward 30 hari luar biasa">
+        <div class="reward-icon" aria-hidden="true">👑</div>
+        <div class="reward-title">30 Hari Luar Biasa</div>
+        <div class="reward-desc">Capai 30 hari berturut-turut dan dapatkan gelar Ultimate Achiever!</div>
+        <div class="reward-prog-bar" role="progressbar" aria-valuemin="0" aria-valuemax="100"
+             aria-label="Progress menuju 30 hari">
+          <div class="reward-prog-fill" id="prog-30" style="width:0%"></div>
+        </div>
+        <div class="reward-days" id="days-30" aria-live="polite">0 / 30 hari</div>
+      </div>
+    </div>
+
+    <section class="card" aria-label="Daftar milestone">
+      <div class="card-title">Semua Milestone</div>
+      <ul class="milestone-list" style="list-style:none;padding:0;margin:0">
+        <li class="milestone-item">
+          <div class="milestone-badge" id="ms-1" aria-hidden="true">🌱</div>
+          <div class="milestone-info">
+            <div class="milestone-name">Mulai Perjalanan</div>
+            <div class="milestone-detail">Check in pertama kali</div>
+          </div>
+          <div class="milestone-status" id="ms-1-status"><span class="badge badge-amber">Belum</span></div>
+        </li>
+        <li class="milestone-item">
+          <div class="milestone-badge" id="ms-3" aria-hidden="true">🔥</div>
+          <div class="milestone-info">
+            <div class="milestone-name">3 Hari Berturut</div>
+            <div class="milestone-detail">Streak 3 hari pertama</div>
+          </div>
+          <div class="milestone-status" id="ms-3-status"><span class="badge badge-amber">Belum</span></div>
+        </li>
+        <li class="milestone-item">
+          <div class="milestone-badge" id="ms-7" aria-hidden="true">🌟</div>
+          <div class="milestone-info">
+            <div class="milestone-name">Consistency Starter</div>
+            <div class="milestone-detail">Streak 7 hari</div>
+          </div>
+          <div class="milestone-status" id="ms-7-status"><span class="badge badge-amber">Belum</span></div>
+        </li>
+        <li class="milestone-item">
+          <div class="milestone-badge" id="ms-14" aria-hidden="true">💎</div>
+          <div class="milestone-info">
+            <div class="milestone-name">Two-Week Warrior</div>
+            <div class="milestone-detail">Streak 14 hari</div>
+          </div>
+          <div class="milestone-status" id="ms-14-status"><span class="badge badge-amber">Belum</span></div>
+        </li>
+        <li class="milestone-item">
+          <div class="milestone-badge" id="ms-30" aria-hidden="true">👑</div>
+          <div class="milestone-info">
+            <div class="milestone-name">Ultimate Achiever</div>
+            <div class="milestone-detail">Streak 30 hari — Reward BESAR!</div>
+          </div>
+          <div class="milestone-status" id="ms-30-status"><span class="badge badge-amber">Belum</span></div>
+        </li>
+        <li class="milestone-item">
+          <div class="milestone-badge" id="ms-learn" aria-hidden="true">📚</div>
+          <div class="milestone-info">
+            <div class="milestone-name">Learner</div>
+            <div class="milestone-detail">Catat 10 sesi belajar</div>
+          </div>
+          <div class="milestone-status" id="ms-learn-status"><span class="badge badge-amber">Belum</span></div>
+        </li>
+        <li class="milestone-item">
+          <div class="milestone-badge" id="ms-journal" aria-hidden="true">✍️</div>
+          <div class="milestone-info">
+            <div class="milestone-name">Journaler</div>
+            <div class="milestone-detail">Tulis 7 jurnal</div>
+          </div>
+          <div class="milestone-status" id="ms-journal-status"><span class="badge badge-amber">Belum</span></div>
+        </li>
+      </ul>
+    </section>
+
+    <section class="card" aria-label="Riwayat check-in">
+      <div class="card-title">Riwayat Check-In</div>
+      <div id="checkin-history" aria-live="polite"></div>
+    </section>
+  </div>
+
+  <!-- ── LEARNING TRACKER ──────────────────── -->
+  <div id="page-learning" class="page" role="region" aria-label="Learning Tracker">
+    <div class="page-header">
+      <div>
+        <h1 class="page-title">📚 Learning Tracker</h1>
+        <p class="page-subtitle">Dokumentasikan perjalanan belajarmu</p>
+      </div>
+    </div>
+
+    <div class="learning-stats" aria-label="Statistik belajar">
+      <div class="learning-stat-card">
+        <div class="learning-stat-num" id="learn-total" aria-live="polite">0</div>
+        <div class="learning-stat-lbl">Total Sesi</div>
+      </div>
+      <div class="learning-stat-card">
+        <div class="learning-stat-num" id="learn-this-week" aria-live="polite">0</div>
+        <div class="learning-stat-lbl">Minggu Ini</div>
+      </div>
+      <div class="learning-stat-card">
+        <div class="learning-stat-num" id="learn-insights" aria-live="polite">0</div>
+        <div class="learning-stat-lbl">Total Insight</div>
+      </div>
+    </div>
+
+    <section class="card learning-form" aria-label="Form catat sesi belajar">
+      <div class="card-title">Catat Sesi Belajar</div>
+      <label for="l-date">Tanggal</label>
+      <input type="date" id="l-date" style="max-width:200px" aria-label="Tanggal sesi belajar">
+      <label for="l-subject">Topik / Mata Pelajaran <span aria-hidden="true" style="color:var(--red)">*</span></label>
+      <input type="text" id="l-subject" placeholder="Contoh: JavaScript Async, Bahasa Inggris..."
+             aria-required="true">
+      <label>Kategori</label>
+      <div class="cat-chips" id="cat-chips" role="group" aria-label="Pilih kategori sesi belajar">
+        <button class="cat-chip" onclick="selectCat(this,'Teknologi')" aria-pressed="false">💻 Teknologi</button>
+        <button class="cat-chip" onclick="selectCat(this,'Bahasa')"    aria-pressed="false">🗣️ Bahasa</button>
+        <button class="cat-chip" onclick="selectCat(this,'Finansial')" aria-pressed="false">💰 Finansial</button>
+        <button class="cat-chip" onclick="selectCat(this,'Kesehatan')" aria-pressed="false">🏃 Kesehatan</button>
+        <button class="cat-chip" onclick="selectCat(this,'Seni')"      aria-pressed="false">🎨 Seni</button>
+        <button class="cat-chip" onclick="selectCat(this,'Lainnya')"   aria-pressed="false">📂 Lainnya</button>
+      </div>
+      <label for="l-what">Apa yang Dipelajari Hari Ini? <span aria-hidden="true" style="color:var(--red)">*</span></label>
+      <textarea id="l-what" aria-required="true"
+                placeholder="Deskripsikan apa yang kamu pelajari..."></textarea>
+      <label for="l-insight">💡 Insight Penting</label>
+      <textarea id="l-insight" placeholder="Tulis insight atau aha-moment terpenting..."></textarea>
+      <label for="l-duration">⏱ Durasi (menit)</label>
+      <input type="number" id="l-duration" placeholder="Contoh: 45" style="max-width:160px"
+             min="1" max="1440" aria-label="Durasi belajar dalam menit">
+      <button class="btn btn-primary" style="margin-top:16px" onclick="saveLearning()">
+        📚 Simpan Sesi Belajar
+      </button>
+    </section>
+
+    <section class="card" aria-label="Daftar semua sesi belajar">
+      <div class="card-title">Semua Sesi Belajar</div>
+      <div id="learning-list" aria-live="polite"></div>
+    </section>
+  </div>
+
+  <!-- ── DAILY JOURNAL ────────────────────── -->
+  <div id="page-journal" class="page" role="region" aria-label="Daily Journal">
+    <div class="page-header">
+      <div>
+        <h1 class="page-title">📝 Daily Journal</h1>
+        <p class="page-subtitle">Refleksikan harimu</p>
+      </div>
+    </div>
+    <section class="card" aria-label="Form tulis jurnal">
+      <div class="card-title">Tulis Jurnal</div>
+      <label for="j-date">Tanggal</label>
+      <input type="date" id="j-date" style="max-width:200px">
+      <label for="j-did">Aktivitas Hari Ini <span aria-hidden="true" style="color:var(--red)">*</span></label>
+      <textarea id="j-did" aria-required="true" placeholder="Ceritakan apa yang kamu lakukan..."></textarea>
+      <label for="j-good">Hal Positif Hari Ini</label>
+      <textarea id="j-good" placeholder="Syukur &amp; hal baik yang terjadi..."></textarea>
+      <label for="j-improve">Yang Perlu Diperbaiki</label>
+      <textarea id="j-improve" placeholder="Apa yang bisa lebih baik besok?"></textarea>
+      <label for="j-mood">Mood Hari Ini</label>
+      <select id="j-mood" aria-label="Pilih mood hari ini" style="max-width:260px">
+        <option value="">— Pilih mood —</option>
+        <option value="Bahagia">😄 Bahagia</option>
+        <option value="Semangat">😊 Semangat</option>
+        <option value="Biasa">😐 Biasa</option>
+        <option value="Lelah">😔 Lelah</option>
+        <option value="Cemas">😰 Cemas</option>
+        <option value="Sedih">😢 Sedih</option>
+        <option value="Marah">😤 Marah</option>
+        <option value="Stres">🤯 Stres</option>
+      </select>
+      <button class="btn btn-primary" style="margin-top:18px" onclick="saveJournal()">Simpan Jurnal</button>
+    </section>
+    <section class="card" aria-label="Jurnal tersimpan">
+      <div class="card-title">Jurnal Tersimpan</div>
+      <div id="journal-list" aria-live="polite"></div>
+    </section>
+  </div>
+
+  <!-- ── TO-DO LIST ────────────────────────── -->
+  <div id="page-todo" class="page" role="region" aria-label="To-Do List">
+    <div class="page-header">
+      <div>
+        <h1 class="page-title">✅ To-Do List</h1>
+        <p class="page-subtitle">Tugas dan kewajiban harianmu</p>
+      </div>
+    </div>
+    <section class="card" aria-label="Tambah tugas baru">
+      <div class="card-title">Tambah Tugas Baru</div>
+      <div class="input-group" style="margin-bottom:10px">
+        <label for="todo-input" class="sr-only">Tambah tugas baru</label>
+        <input type="text" id="todo-input" placeholder="Nama tugas baru..."
+               aria-label="Teks tugas baru" onkeydown="if(event.key==='Enter')addTodo()">
+      </div>
+      <div class="row-form" style="margin-bottom:12px">
+        <div>
+          <label for="todo-date">Tanggal</label>
+          <input type="date" id="todo-date" aria-label="Tanggal tugas">
+        </div>
+        <div>
+          <label for="todo-time">Jam</label>
+          <input type="time" id="todo-time" aria-label="Jam tugas">
+        </div>
+        <div style="display:flex;align-items:flex-end">
+          <button class="btn btn-primary" onclick="addTodo()" style="white-space:nowrap">+ Tambah Tugas</button>
+        </div>
+      </div>
+    </section>
+    <section class="card" aria-label="Daftar tugas">
+      <div class="card-title">Daftar Tugas</div>
+      <div id="todo-list" aria-live="polite"></div>
+    </section>
+  </div>
+
+  <!-- ── REFLEKSI ──────────────────────────── -->
+  <div id="page-reflection" class="page" role="region" aria-label="Refleksi Mingguan">
+    <div class="page-header">
+      <div>
+        <h1 class="page-title">🔮 Refleksi Mingguan</h1>
+        <p class="page-subtitle">Evaluasi dan rencanakan langkah berikutnya</p>
+      </div>
+    </div>
+    <section class="card" aria-label="Form tulis refleksi">
+      <div class="card-title">Tulis Refleksi</div>
+      <label for="r-date">Tanggal</label>
+      <input type="date" id="r-date" style="max-width:200px">
+      <label for="r-grow">Apa yang sudah berkembang? <span aria-hidden="true" style="color:var(--red)">*</span></label>
+      <textarea id="r-grow" aria-required="true" placeholder="Pencapaian &amp; perkembangan minggu ini..."></textarea>
+      <label for="r-lack">Apa yang masih kurang?</label>
+      <textarea id="r-lack" placeholder="Hal yang perlu ditingkatkan..."></textarea>
+      <label for="r-plan">Rencana Minggu Depan</label>
+      <textarea id="r-plan" placeholder="Target &amp; rencana untuk minggu depan..."></textarea>
+      <button class="btn btn-primary" style="margin-top:18px" onclick="saveReflection()">Simpan Refleksi</button>
+    </section>
+    <section class="card" aria-label="Refleksi tersimpan">
+      <div class="card-title">Refleksi Tersimpan</div>
+      <div id="reflection-list" aria-live="polite"></div>
+    </section>
+  </div>
+
+  <!-- ── KOMUNIKASI SOSIAL ─────────────────── -->
+  <div id="page-sosial" class="page" role="region" aria-label="Komunikasi dan Sosial">
+    <div class="page-header">
+      <div>
+        <h1 class="page-title">💬 Komunikasi &amp; Sosial</h1>
+        <p class="page-subtitle">Catatan interaksi sosialmu</p>
+      </div>
+    </div>
+    <section class="card" aria-label="Form catat interaksi">
+      <div class="card-title">Catat Interaksi</div>
+      <div class="row-form">
+        <div>
+          <label for="s-date">Tanggal</label>
+          <input type="date" id="s-date">
+        </div>
+        <div>
+          <label for="s-who">Ngobrol dengan Siapa <span aria-hidden="true" style="color:var(--red)">*</span></label>
+          <input type="text" id="s-who" placeholder="Nama orang..." aria-required="true">
+        </div>
+      </div>
+      <label for="s-topic">Topik yang Dibahas</label>
+      <textarea id="s-topic" placeholder="Apa yang diobrolkan..."></textarea>
+      <label for="s-improve">Perbaikan Komunikasi</label>
+      <textarea id="s-improve" placeholder="Refleksi cara komunikasi..."></textarea>
+      <label for="s-note">Catatan Tambahan</label>
+      <textarea id="s-note" placeholder="Perasaan setelah ngobrol, dll..."></textarea>
+      <button class="btn btn-primary" style="margin-top:18px" onclick="saveSosial()">Simpan Catatan</button>
+    </section>
+    <section class="card" aria-label="Catatan sosial tersimpan">
+      <div class="card-title">Catatan Tersimpan</div>
+      <div id="sosial-list" aria-live="polite"></div>
+    </section>
+  </div>
+
+  <!-- ── TRACKER EMOSI ─────────────────────── -->
+  <div id="page-emosi" class="page" role="region" aria-label="Tracker Emosi">
+    <div class="page-header">
+      <div>
+        <h1 class="page-title">🌊 Tracker Emosi</h1>
+        <p class="page-subtitle">Kenali dan kelola emosimu</p>
+      </div>
+    </div>
+    <section class="card" aria-label="Form catat emosi">
+      <div class="card-title">Catat Emosi</div>
+      <div class="row-form">
+        <div>
+          <label for="e-date">Tanggal</label>
+          <input type="date" id="e-date">
+        </div>
+        <div>
+          <label for="e-mood">Mood <span aria-hidden="true" style="color:var(--red)">*</span></label>
+          <select id="e-mood" aria-required="true">
+            <option value="Bahagia">😄 Bahagia</option>
+            <option value="Semangat">😊 Semangat</option>
+            <option value="Biasa">😐 Biasa</option>
+            <option value="Lelah">😔 Lelah</option>
+            <option value="Cemas">😰 Cemas</option>
+            <option value="Sedih">😢 Sedih</option>
+            <option value="Marah">😤 Marah</option>
+            <option value="Stres">🤯 Stres</option>
+          </select>
+        </div>
+      </div>
+      <label for="e-cause">Penyebab</label>
+      <textarea id="e-cause" placeholder="Apa yang memicu emosi ini..."></textarea>
+      <label for="e-solution">Solusi / Cara Mengatasinya</label>
+      <textarea id="e-solution" placeholder="Langkah yang kamu ambil..."></textarea>
+      <button class="btn btn-primary" style="margin-top:18px" onclick="addEmosi()">+ Catat Emosi</button>
+    </section>
+    <section class="card" style="overflow-x:auto" aria-label="Riwayat emosi">
+      <div class="card-title">Riwayat Emosi</div>
+      <table aria-label="Tabel riwayat emosi">
+        <thead>
+          <tr>
+            <th scope="col">Tanggal</th>
+            <th scope="col">Mood</th>
+            <th scope="col">Penyebab</th>
+            <th scope="col">Solusi</th>
+            <th scope="col"><span class="sr-only">Aksi</span></th>
+          </tr>
+        </thead>
+        <tbody id="emosi-table" aria-live="polite"></tbody>
+      </table>
+    </section>
+  </div>
+
+  <!-- ── SETTINGS ──────────────────────────── -->
+  <div id="page-settings" class="page" role="region" aria-label="Pengaturan">
+    <div class="page-header">
+      <div>
+        <h1 class="page-title">⚙️ Settings</h1>
+        <p class="page-subtitle">Pengaturan dan manajemen data aplikasi</p>
+      </div>
+    </div>
+
+    <!-- Tampilan -->
+    <section class="card" aria-label="Pengaturan tampilan">
+      <div class="card-title">🎨 Tampilan</div>
+      <div style="display:flex;align-items:center;justify-content:space-between;padding:12px 0;border-bottom:1px solid var(--border)">
+        <div>
+          <div style="font-size:14px;font-weight:600;color:var(--text)">Mode Gelap / Terang</div>
+          <div style="font-size:12px;color:var(--text3);margin-top:2px">Sesuaikan tampilan aplikasi</div>
+        </div>
+        <button class="btn" onclick="toggleTheme()" id="settings-theme-btn" style="gap:8px">
+          🌙 Ganti Tema
+        </button>
+      </div>
+    </section>
+
+    <!-- Manajemen Data -->
+    <section class="card" aria-label="Manajemen data">
+      <div class="card-title">🗂️ Manajemen Data</div>
+
+      <div style="display:flex;align-items:center;justify-content:space-between;padding:14px 0;border-bottom:1px solid var(--border)">
+        <div>
+          <div style="font-size:14px;font-weight:600;color:var(--text)">🎯 Target Hidup</div>
+          <div style="font-size:12px;color:var(--text3);margin-top:2px" id="settings-count-target">0 target tersimpan</div>
+        </div>
+        <button class="btn btn-danger btn-sm" onclick="clearSectionData('targets')">🗑️ Hapus Semua</button>
+      </div>
+
+      <div style="display:flex;align-items:center;justify-content:space-between;padding:14px 0;border-bottom:1px solid var(--border)">
+        <div>
+          <div style="font-size:14px;font-weight:600;color:var(--text)">🔥 Habit Tracker</div>
+          <div style="font-size:12px;color:var(--text3);margin-top:2px" id="settings-count-habit">0 habit tersimpan</div>
+        </div>
+        <button class="btn btn-danger btn-sm" onclick="clearSectionData('habits')">🗑️ Hapus Semua</button>
+      </div>
+
+      <div style="display:flex;align-items:center;justify-content:space-between;padding:14px 0;border-bottom:1px solid var(--border)">
+        <div>
+          <div style="font-size:14px;font-weight:600;color:var(--text)">✅ To-Do List</div>
+          <div style="font-size:12px;color:var(--text3);margin-top:2px" id="settings-count-todo">0 tugas tersimpan</div>
+        </div>
+        <button class="btn btn-danger btn-sm" onclick="clearSectionData('todos')">🗑️ Hapus Semua</button>
+      </div>
+
+      <div style="display:flex;align-items:center;justify-content:space-between;padding:14px 0;border-bottom:1px solid var(--border)">
+        <div>
+          <div style="font-size:14px;font-weight:600;color:var(--text)">📝 Daily Journal</div>
+          <div style="font-size:12px;color:var(--text3);margin-top:2px" id="settings-count-journal">0 jurnal tersimpan</div>
+        </div>
+        <button class="btn btn-danger btn-sm" onclick="clearSectionData('journals')">🗑️ Hapus Semua</button>
+      </div>
+
+      <div style="display:flex;align-items:center;justify-content:space-between;padding:14px 0;border-bottom:1px solid var(--border)">
+        <div>
+          <div style="font-size:14px;font-weight:600;color:var(--text)">🔮 Refleksi</div>
+          <div style="font-size:12px;color:var(--text3);margin-top:2px" id="settings-count-reflection">0 refleksi tersimpan</div>
+        </div>
+        <button class="btn btn-danger btn-sm" onclick="clearSectionData('reflections')">🗑️ Hapus Semua</button>
+      </div>
+
+      <div style="display:flex;align-items:center;justify-content:space-between;padding:14px 0;border-bottom:1px solid var(--border)">
+        <div>
+          <div style="font-size:14px;font-weight:600;color:var(--text)">💬 Komunikasi Sosial</div>
+          <div style="font-size:12px;color:var(--text3);margin-top:2px" id="settings-count-sosial">0 catatan tersimpan</div>
+        </div>
+        <button class="btn btn-danger btn-sm" onclick="clearSectionData('sosials')">🗑️ Hapus Semua</button>
+      </div>
+
+      <div style="display:flex;align-items:center;justify-content:space-between;padding:14px 0;border-bottom:1px solid var(--border)">
+        <div>
+          <div style="font-size:14px;font-weight:600;color:var(--text)">🌊 Tracker Emosi</div>
+          <div style="font-size:12px;color:var(--text3);margin-top:2px" id="settings-count-emosi">0 catatan tersimpan</div>
+        </div>
+        <button class="btn btn-danger btn-sm" onclick="clearSectionData('emosis')">🗑️ Hapus Semua</button>
+      </div>
+
+      <div style="display:flex;align-items:center;justify-content:space-between;padding:14px 0;border-bottom:1px solid var(--border)">
+        <div>
+          <div style="font-size:14px;font-weight:600;color:var(--text)">📚 Learning Tracker</div>
+          <div style="font-size:12px;color:var(--text3);margin-top:2px" id="settings-count-learning">0 sesi tersimpan</div>
+        </div>
+        <button class="btn btn-danger btn-sm" onclick="clearSectionData('learnings')">🗑️ Hapus Semua</button>
+      </div>
+
+      <div style="display:flex;align-items:center;justify-content:space-between;padding:14px 0">
+        <div>
+          <div style="font-size:14px;font-weight:600;color:var(--text)">🏆 Reward & Streak</div>
+          <div style="font-size:12px;color:var(--text3);margin-top:2px" id="settings-count-streak">Streak 0 hari</div>
+        </div>
+        <button class="btn btn-danger btn-sm" onclick="clearSectionData('streak')">🗑️ Reset Streak</button>
+      </div>
+    </section>
+
+    <!-- Reset Total -->
+    <section class="card" style="border-color:var(--red-bg)" aria-label="Danger zone">
+      <div class="card-title" style="color:var(--red)">⚠️ Danger Zone</div>
+      <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px">
+        <div>
+          <div style="font-size:14px;font-weight:700;color:var(--text)">Reset Semua Data</div>
+          <div style="font-size:12px;color:var(--text3);margin-top:4px;line-height:1.5">Menghapus seluruh data secara permanen.<br>Tindakan ini <strong style="color:var(--red)">tidak dapat dibatalkan</strong>.</div>
+        </div>
+        <button class="btn btn-danger" onclick="resetAllData()" style="flex-shrink:0">
+          🗑️ Reset Semua Data
+        </button>
+      </div>
+    </section>
+
+    <!-- Info Versi -->
+    <section class="card" aria-label="Informasi aplikasi">
+      <div class="card-title">ℹ️ Informasi</div>
+      <div style="font-size:13px;color:var(--text2);line-height:1.8">
+        <div><span style="color:var(--text3)">Aplikasi</span> &nbsp; Trackify Personal Dashboard</div>
+        <div><span style="color:var(--text3)">Versi</span> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp; 1.13</div>
+        <div><span style="color:var(--text3)">Storage</span> &nbsp;&nbsp; localStorage (browser lokal)</div>
+      </div>
+    </section>
+  </div>
+
+</main>
+
+
+<!-- Toast notifikasi -->
+<div class="toast" id="toast" role="status" aria-live="polite" aria-atomic="true"></div>
+
+<!-- Script utama — dimuat setelah HTML selesai -->
+<script src="script.js"></script>
+</body>
+</html>

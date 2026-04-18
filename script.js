@@ -431,9 +431,9 @@ function renderTargets() {
                : days !== null ? Math.max(0, Math.min(85, 100 - days * 2)) : 30;
     const isDone = t.status === 'done';
     return `<tr>
-      <td style="font-weight:600">${escapeHTML(t.name)}</td>
-      <td style="color:var(--text3);font-size:12px"><time datetime="${t.deadline||''}">${t.deadline||'—'}</time></td>
-      <td>
+      <td data-label="Target" style="font-weight:600">${escapeHTML(t.name)}</td>
+      <td data-label="Deadline" style="color:var(--text3);font-size:12px"><time datetime="${t.deadline||''}">${t.deadline||'—'}</time></td>
+      <td data-label="Status">
         <button class="status-toggle-btn ${isDone ? 'status-done' : 'status-progress'}"
                 onclick="toggleTargetStatus(${i})"
                 aria-label="Klik untuk ubah status: ${isDone ? 'Selesai' : 'On Progress'}"
@@ -441,14 +441,14 @@ function renderTargets() {
           ${isDone ? '✓ Selesai' : '⏳ Berjalan'}
         </button>
       </td>
-      <td style="min-width:120px">
+      <td data-label="Progress" style="min-width:120px">
         <div class="prog-label" aria-hidden="true"><span>${prog}%</span></div>
         <div class="prog-bar" role="progressbar" aria-valuenow="${prog}" aria-valuemin="0" aria-valuemax="100"
              aria-label="Progress ${prog}%">
           <div class="prog-fill" style="width:${prog}%"></div>
         </div>
       </td>
-      <td><button class="del-btn" onclick="delTarget(${i})" aria-label="Hapus target: ${escapeHTML(t.name)}">✕</button></td>
+      <td data-label=""><button class="del-btn" onclick="delTarget(${i})" aria-label="Hapus target: ${escapeHTML(t.name)}"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg></button></td>
     </tr>`;
   }).join('');
   setTimeout(registerAllLongPress, 60);
@@ -494,13 +494,28 @@ function renderHabit() {
     body.innerHTML = `<tr><td>${emptyHTML('🔥','Belum ada habit. Tambahkan di atas!')}</td></tr>`; return;
   }
 
+  const TRASH = `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg>`;
+
   head.innerHTML = '<tr><th scope="col">Tanggal</th>' +
     state.habits.map((h, hi) => `
-      <th scope="col" style="text-align:center;min-width:80px">${escapeHTML(h)}<br>
-        <button class="del-btn" onclick="delHabit(${hi})" style="font-size:10px"
-                aria-label="Hapus habit: ${escapeHTML(h)}">✕</button>
+      <th scope="col" class="habit-col-th" style="text-align:center;min-width:80px;cursor:pointer;user-select:none"
+          onclick="toggleHabitDelBtn(this, ${hi})"
+          aria-label="Klik/tahan untuk hapus habit: ${escapeHTML(h)}">
+        <span class="habit-col-name">${escapeHTML(h)}</span>
+        <button class="habit-col-del" onclick="event.stopPropagation();delHabit(${hi})"
+                aria-label="Hapus habit: ${escapeHTML(h)}">${TRASH}</button>
       </th>`).join('') +
     '<th scope="col"><span class="sr-only">Hapus baris</span></th></tr>';
+
+  // Daftarkan long-press pada th habit (mobile)
+  setTimeout(() => {
+    document.querySelectorAll('.habit-col-th').forEach((th, hi) => {
+      registerLongPress(th, () => [
+        { icon: '🗑️', label: `Hapus "${state.habits[hi]}"`, danger: true,
+          action: () => delHabit(hi) }
+      ]);
+    });
+  }, 60);
 
   body.innerHTML = habitRows.map((row, ri) => {
     const cells = state.habits.map((h, hi) => {
@@ -519,7 +534,7 @@ function renderHabit() {
       <td style="white-space:nowrap;color:var(--text3);font-size:12px;font-weight:600">
         <time datetime="${row}">${row}</time>
       </td>${cells}
-      <td><button class="del-btn" onclick="delHabitRow(${ri})" aria-label="Hapus baris ${row}">✕</button></td>
+      <td><button class="del-btn" onclick="delHabitRow(${ri})" aria-label="Hapus baris ${row}"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg></button></td>
     </tr>`;
   }).join('');
   setTimeout(registerAllLongPress, 60);
@@ -555,8 +570,30 @@ function delHabitRow(i) {
 
 function delHabit(i) {
   if (!state.habits[i]) return;
+  clearTimeout(_habitDelTimer);
   if (!konfirmasiHapus(`habit "${state.habits[i]}"`)) return;
   state.habits.splice(i, 1); saveState(); renderHabit(); showToast('🗑️ Habit dihapus');
+}
+
+/** Tap nama kolom habit → toggle tampil/sembunyi ikon sampah
+ *  Mobile: auto-hide setelah 2 detik jika tidak diklik
+ */
+let _habitDelTimer = null;
+function toggleHabitDelBtn(thEl, hi) {
+  const isActive = thEl.classList.contains('habit-col-active');
+  // Tutup semua dulu, bersihkan timer
+  document.querySelectorAll('.habit-col-th').forEach(t => t.classList.remove('habit-col-active'));
+  clearTimeout(_habitDelTimer);
+
+  if (!isActive) {
+    thEl.classList.add('habit-col-active');
+    // Mobile only: auto-hide setelah 2 detik
+    if (isMobile()) {
+      _habitDelTimer = setTimeout(() => {
+        thEl.classList.remove('habit-col-active');
+      }, 2000);
+    }
+  }
 }
 
 /* ============================================================
@@ -588,7 +625,7 @@ function renderTodo() {
         ${dueMeta}
       </div>
       <button class="del-btn" onclick="delTodoById(${t.id})"
-              aria-label="Hapus tugas: ${escapeHTML(t.text)}">✕</button>
+              aria-label="Hapus tugas: ${escapeHTML(t.text)}"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg></button>
     </div>`;
   }).join('');
   setTimeout(registerAllLongPress, 60);
@@ -669,7 +706,7 @@ function renderJournals() {
         <span class="journal-date">📅 <time datetime="${j.date}">${j.date}</time></span>
         <div style="display:flex;align-items:center;gap:8px">
           ${j.mood ? `<span class="badge badge-purple">${escapeHTML(j.mood)}</span>` : ''}
-          <button class="del-btn" onclick="delJournal(${i})" aria-label="Hapus jurnal ${j.date}">✕</button>
+          <button class="del-btn" onclick="delJournal(${i})" aria-label="Hapus jurnal ${j.date}"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg></button>
         </div>
       </div>
       <div style="font-size:13px;color:var(--text2);line-height:1.6">
@@ -708,7 +745,7 @@ function renderReflections() {
     <article class="journal-entry">
       <div class="journal-meta">
         <span class="journal-date">📅 <time datetime="${r.date}">${r.date}</time></span>
-        <button class="del-btn" onclick="delReflection(${i})" aria-label="Hapus refleksi ${r.date}">✕</button>
+        <button class="del-btn" onclick="delReflection(${i})" aria-label="Hapus refleksi ${r.date}"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg></button>
       </div>
       <div style="font-size:13px;line-height:1.7">
         <span style="color:var(--green);font-weight:600">Berkembang: </span><span style="color:var(--text2)">${escapeHTML(r.grow)}</span><br>
@@ -751,7 +788,7 @@ function renderSosials() {
         <span class="journal-date">📅 <time datetime="${s.date}">${s.date}</time></span>
         <div style="display:flex;align-items:center;gap:8px">
           <span class="badge badge-blue">${escapeHTML(s.who)}</span>
-          <button class="del-btn" onclick="delSosial(${i})" aria-label="Hapus catatan sosial ${s.date}">✕</button>
+          <button class="del-btn" onclick="delSosial(${i})" aria-label="Hapus catatan sosial ${s.date}"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg></button>
         </div>
       </div>
       ${s.topic   ? `<div style="font-size:13px;color:var(--text2);margin-top:4px">📌 ${escapeHTML(s.topic)}</div>` : ''}
@@ -793,11 +830,11 @@ function renderEmosi() {
   if (!state.emosis.length) { tb.innerHTML = `<tr><td colspan="5">${emptyHTML('🌊','Belum ada data emosi.')}</td></tr>`; return; }
   tb.innerHTML = state.emosis.map((e, i) => `
     <tr>
-      <td style="white-space:nowrap;font-size:12px;color:var(--text3)"><time datetime="${e.date}">${e.date}</time></td>
-      <td><span class="badge ${MOOD_COLOR[e.mood]||'badge-purple'}">${escapeHTML(e.mood)}</span></td>
-      <td style="font-size:12px;color:var(--text2)">${escapeHTML(e.cause)||'—'}</td>
-      <td style="font-size:12px;color:var(--text2)">${escapeHTML(e.solution)||'—'}</td>
-      <td><button class="del-btn" onclick="delEmosi(${i})" aria-label="Hapus catatan emosi ${e.date}">✕</button></td>
+      <td data-label="Tanggal" style="white-space:nowrap;font-size:12px;color:var(--text3)"><time datetime="${e.date}">${e.date}</time></td>
+      <td data-label="Mood"><span class="badge ${MOOD_COLOR[e.mood]||'badge-purple'}">${escapeHTML(e.mood)}</span></td>
+      <td data-label="Penyebab" style="font-size:12px;color:var(--text2)">${escapeHTML(e.cause)||'—'}</td>
+      <td data-label="Solusi" style="font-size:12px;color:var(--text2)">${escapeHTML(e.solution)||'—'}</td>
+      <td data-label=""><button class="del-btn" onclick="delEmosi(${i})" aria-label="Hapus catatan emosi ${e.date}"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg></button></td>
     </tr>`).join('');
   setTimeout(registerAllLongPress, 60);
 }
@@ -937,7 +974,7 @@ function renderLearnings() {
         <div style="display:flex;align-items:center;gap:8px">
           ${l.cat      ? `<span class="learning-tag">${escapeHTML(l.cat)}</span>` : ''}
           ${l.duration ? `<span class="badge badge-blue">⏱ ${escapeHTML(l.duration)} mnt</span>` : ''}
-          <button class="del-btn" onclick="delLearning(${i})" aria-label="Hapus sesi: ${escapeHTML(l.subject)}">✕</button>
+          <button class="del-btn" onclick="delLearning(${i})" aria-label="Hapus sesi: ${escapeHTML(l.subject)}"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg></button>
         </div>
       </div>
       <div class="learning-subject">${escapeHTML(l.subject)}</div>
@@ -1102,14 +1139,14 @@ function renderMenstruasi() {
         const cycleLen = prevIdx > 0 ? diffDays(sorted[prevIdx-1].start, sorted[prevIdx].start) + ' hr' : '—';
         const syms = d.symptoms?.map(s => SYMPTOM_LABEL[s] || s).join(', ') || '—';
         return `<tr>
-          <td>${fmtDateID(d.start)}</td>
-          <td>${d.end ? fmtDateID(d.end) : '—'}</td>
-          <td>${dur}</td>
-          <td>${cycleLen}</td>
-          <td>${FLOW_LABEL[d.flow] || d.flow}</td>
-          <td style="font-size:11px;max-width:180px">${escapeHTML(syms)}</td>
-          <td>${d.mood ? MOOD_LABEL[d.mood] || d.mood : '—'}</td>
-          <td><button class="del-btn btn-danger" onclick="delMenstruasi(${i})" aria-label="Hapus siklus ini">🗑️</button></td>
+          <td data-label="Mulai">${fmtDateID(d.start)}</td>
+          <td data-label="Selesai">${d.end ? fmtDateID(d.end) : '—'}</td>
+          <td data-label="Durasi">${dur}</td>
+          <td data-label="Siklus">${cycleLen}</td>
+          <td data-label="Aliran">${FLOW_LABEL[d.flow] || d.flow}</td>
+          <td data-label="Gejala" style="font-size:11px;max-width:180px">${escapeHTML(syms)}</td>
+          <td data-label="Mood">${d.mood ? MOOD_LABEL[d.mood] || d.mood : '—'}</td>
+          <td data-label=""><button class="del-btn btn-danger" onclick="delMenstruasi(${i})" aria-label="Hapus siklus ini"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg></button></td>
         </tr>`;
       }).join('');
     }
@@ -1356,60 +1393,27 @@ function registerLongPress(el, getMenuItems) {
 }
 
 /**
- * Panggil setelah render — daftarkan long press pada semua item yang bisa dihapus.
- * Tidak perlu edit data (untuk sekarang aksi edit bisa dikembangkan nanti).
+ * Inject tombol ⋮ di setiap baris/item yang punya del-btn.
+ * Dipanggil setelah setiap render. Di desktop tidak visible (CSS).
  */
 function registerAllLongPress() {
-  if (!isMobile()) return;
+  injectRowMenuButtons();
+}
 
-  // ── To-Do Items ──
-  document.querySelectorAll('.todo-item[role="listitem"]').forEach(el => {
-    const delBtn = el.querySelector('.del-btn[aria-label^="Hapus tugas"]');
-    if (!delBtn) return;
-    // Ambil ID dari onclick atribut tombol
-    const match = delBtn.getAttribute('onclick')?.match(/\d+/);
-    if (!match) return;
-    const id = parseInt(match[0]);
-    registerLongPress(el, () => [
-      { icon: '🗑️', label: 'Hapus Tugas', danger: true, action: () => delTodoById(id) }
-    ]);
-  });
+function injectRowMenuButtons() {
+  // Del-btn sudah visible langsung di mobile via CSS.
+  // Fungsi ini tidak perlu inject tombol tambahan.
+  // Hanya pastikan habit-col-th punya long-press (dipanggil dari renderHabit).
+}
 
-  // ── Journal Entries ──
-  document.querySelectorAll('.journal-entry').forEach(el => {
-    const delBtn = el.querySelector('.del-btn');
-    if (!delBtn) return;
-    const match = delBtn.getAttribute('onclick')?.match(/(\w+)\((\d+)\)/);
-    if (!match) return;
-    const fn = match[1], idx = parseInt(match[2]);
-    registerLongPress(el, () => [
-      { icon: '🗑️', label: 'Hapus', danger: true, action: () => window[fn]?.(idx) }
-    ]);
-  });
-
-  // ── Learning Entries ──
-  document.querySelectorAll('.learning-entry').forEach(el => {
-    const delBtn = el.querySelector('.del-btn');
-    if (!delBtn) return;
-    const match = delBtn.getAttribute('onclick')?.match(/(\w+)\((\d+)\)/);
-    if (!match) return;
-    const fn = match[1], idx = parseInt(match[2]);
-    registerLongPress(el, () => [
-      { icon: '🗑️', label: 'Hapus Sesi', danger: true, action: () => window[fn]?.(idx) }
-    ]);
-  });
-
-  // ── Table Rows (Target, Habit, Emosi, Sosial, Refleksi) ──
-  document.querySelectorAll('tr').forEach(el => {
-    const delBtn = el.querySelector('.del-btn');
-    if (!delBtn) return;
-    const match = delBtn.getAttribute('onclick')?.match(/(\w+)\((\d+)\)/);
-    if (!match) return;
-    const fn = match[1], idx = parseInt(match[2]);
-    registerLongPress(el, () => [
-      { icon: '🗑️', label: 'Hapus', danger: true, action: () => window[fn]?.(idx) }
-    ]);
-  });
+/**
+ * makeRowMenuBtn masih ada untuk kompatibilitas, tidak dipakai aktif.
+ */
+function makeRowMenuBtn(getItems) {
+  const btn = document.createElement('button');
+  btn.className = 'row-menu-btn';
+  btn.style.display = 'none';
+  return btn;
 }
 
 /* ============================================================

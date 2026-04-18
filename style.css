@@ -538,7 +538,12 @@ select option { background: var(--bg3); }
   display: inline-flex; align-items: center; justify-content: center;
   font-size: 13px;
   margin: 0 auto;
-  transition: all .18s;
+  transition: border-color .2s, background .2s, transform .15s;
+}
+.habit-check:hover {
+  border-color: var(--accent);
+  background: var(--accent-glow);
+  transform: scale(1.05);
 }
 .habit-check.done { background: var(--green-bg); border-color: var(--green); color: var(--green); }
 .habit-check.skip { background: var(--red-bg); border-color: var(--red); color: var(--red); }
@@ -552,13 +557,33 @@ select option { background: var(--bg3); }
 .journal-entry {
   padding: 14px 0;
   border-bottom: 1px solid var(--border);
+  position: relative;
 }
 .journal-entry:last-child { border-bottom: none; }
 .journal-meta {
   display: flex; justify-content: space-between; align-items: center;
   margin-bottom: 6px;
+  padding-right: 0;
 }
 .journal-date { font-size: 12px; font-weight: 600; color: var(--text2); }
+@media (max-width: 900px) {
+  /* Del-btn di card entries: ikut flow flex header */
+  .journal-entry  { padding-right: 0; }
+  .learning-entry { padding-right: 0; }
+  .todo-item      { position: relative; }
+
+  .journal-entry .del-btn,
+  .learning-entry .del-btn {
+    position: static !important;
+    transform: scale(1) !important;
+    flex-shrink: 0;
+  }
+  .todo-item .del-btn {
+    position: static !important;
+    transform: scale(1) !important;
+    margin-left: auto;
+  }
+}
 
 /* ── SEP ── */
 .sep { height: 1px; background: var(--border); margin: 16px 0; }
@@ -835,6 +860,65 @@ select option { background: var(--bg3); }
   .reward-cards { grid-template-columns: 1fr; }
   .quick-actions-grid { grid-template-columns: repeat(2, 1fr); }
   .learning-stats { grid-template-columns: 1fr; }
+
+  /* ── Responsive table: jadikan card di mobile ── */
+  table { font-size: 13px; }
+  thead { display: none; } /* sembunyikan header */
+  tr {
+    display: block;
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    margin-bottom: 10px;
+    padding: 4px 0;
+    background: var(--bg3);
+    position: relative;
+  }
+  tr:last-child { margin-bottom: 0; }
+  tr:hover td { background: transparent; }
+  td {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 8px 14px;
+    border-bottom: 1px solid var(--border);
+    font-size: 13px;
+    gap: 8px;
+  }
+  td:last-child {
+    border-bottom: none;
+    justify-content: flex-end;
+    padding: 6px 10px;
+  }
+  td[data-label]::before {
+    content: attr(data-label);
+    font-size: 10px;
+    font-weight: 700;
+    color: var(--text3);
+    text-transform: uppercase;
+    letter-spacing: .06em;
+    white-space: nowrap;
+    flex-shrink: 0;
+    min-width: 72px;
+    font-family: 'Space Grotesk', sans-serif;
+  }
+  /* Kolom aksi: hanya tampilkan tombol tanpa label */
+  td[data-label=""]::before { display: none; }
+  td[data-label=""] {
+    border: none;
+    padding: 8px 12px;
+    justify-content: flex-end;
+    background: transparent;
+  }
+  /* Pastikan tr punya position relative */
+  tr { position: relative; }
+  /* Sembunyikan kolom progress dan kolom panjang tertentu di mobile */
+  td[data-label="Progress"] { display: none; }
+  /* Habit table tetap scroll horizontal */
+  #habit-table { display: table; }
+  #habit-table thead { display: table-header-group; }
+  #habit-table tr { display: table-row; border: none; margin: 0; background: transparent; padding: 0; }
+  #habit-table td, #habit-table th { display: table-cell; border-bottom: 1px solid var(--border); }
+  #habit-table td:last-child { position: static; border-bottom: 1px solid var(--border); }
 }
 
 /* ── AKSESIBILITAS ── */
@@ -960,15 +1044,18 @@ input[type=time] {
   border: none;
   cursor: pointer;
   font-size: 12px;
-  padding: 4px 8px;
+  padding: 4px 7px;
   border-radius: 6px;
   color: var(--text3);
   transition: opacity .18s, color .15s, background .15s, transform .15s;
   flex-shrink: 0;
   transform: scale(0.85);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
 }
 
-/* Tampilkan tombol X saat hover parent (desktop) */
+/* Tampilkan ikon sampah saat hover parent (desktop) */
 .todo-item:hover .del-btn,
 .journal-entry:hover .del-btn,
 .learning-entry:hover .del-btn,
@@ -982,6 +1069,51 @@ th:hover .del-btn {
 .del-btn:hover {
   color: var(--red);
   background: var(--red-bg);
+}
+
+/* Habit kolom header */
+.habit-col-th {
+  position: relative;
+  cursor: pointer;
+  user-select: none;
+  transition: background .18s;
+}
+
+/* Desktop: sama persis dengan hover baris (tr:hover td = var(--card-hover)) */
+@media (hover: hover) {
+  .habit-col-th:hover { background: var(--card-hover); }
+  .habit-col-th:hover .habit-col-del { opacity: 1; visibility: visible; }
+}
+
+/* Active state (klik desktop) — sama subtle */
+.habit-col-th.habit-col-active { background: var(--card-hover); }
+.habit-col-th.habit-col-active .habit-col-del { opacity: 1; visibility: visible; }
+
+/* Tombol sampah kolom habit */
+.habit-col-del {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  border-radius: 5px;
+  border: 1px solid transparent;
+  background: transparent;
+  color: var(--text3);
+  cursor: pointer;
+  margin: 3px auto 1px;
+  padding: 0;
+  transition: background .18s, color .18s, border-color .18s, transform .15s, opacity .2s;
+  opacity: 0;
+  visibility: hidden;
+}
+.habit-col-del:hover { background: var(--red-bg); color: var(--red); border-color: rgba(239,68,68,.2); }
+.habit-col-del:active { transform: scale(0.88); }
+
+/* Mobile: sampah muncul saat th.habit-col-active (touch), auto-hide via JS */
+@media (hover: none) {
+  .habit-col-th.habit-col-active { background: var(--card-hover); }
+  .habit-col-th.habit-col-active .habit-col-del { opacity: 1; visibility: visible; }
 }
 
 /* ── CONTEXT MENU (Long Press Mobile) ── */
@@ -1039,12 +1171,51 @@ th:hover .del-btn {
   backdrop-filter: blur(1px);
 }
 
-/* Di mobile: sembunyikan del-btn dari DOM flow (long press saja) */
+/* ── MOBILE: del-btn visible langsung (no hover needed) ── */
 @media (max-width: 900px) {
-  .del-btn {
-    display: none !important;
+  /* Semua del-btn yang perlu tampil di mobile */
+  td[data-label=""] .del-btn,
+  .journal-entry .del-btn,
+  .learning-entry .del-btn,
+  .todo-item .del-btn,
+  #habit-table td .del-btn {
+    display: inline-flex !important;
+    opacity: 1 !important;
+    pointer-events: auto !important;
+    width: 30px !important;
+    height: 30px !important;
+    padding: 0 !important;
+    border-radius: 7px !important;
+    background: var(--bg4) !important;
+    color: var(--text3) !important;
+    border: 1px solid var(--border) !important;
+    flex-shrink: 0 !important;
+    align-items: center !important;
+    justify-content: center !important;
+    transition: background .15s, color .15s !important;
+  }
+  .del-btn:active {
+    background: var(--red-bg) !important;
+    color: var(--red) !important;
+    transform: scale(0.88) !important;
+    opacity: 0.9 !important;
+  }
+  /* Tabel card kolom aksi */
+  td[data-label=""] {
+    min-width: 44px;
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+  }
+  /* Habit baris: kolom del kecil */
+  #habit-table td:last-child {
+    padding: 4px 6px !important;
+    width: 44px;
   }
 }
+
+/* row-menu-btn tidak dipakai */
+.row-menu-btn { display: none !important; }
 
 /* Long-press visual feedback */
 .lp-active {

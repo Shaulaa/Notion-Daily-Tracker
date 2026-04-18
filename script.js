@@ -99,6 +99,9 @@ function createDefaultState() {
     // Emosi: [{ date, mood, cause, solution }]
     emosis: [],
 
+    // Menstruasi: [{ start, end, flow, symptoms:[], mood, note }]
+    menstruasis: [],
+
     // Reward / Streak
     streak:      0,
     lastCheckin: '',   // YYYY-MM-DD
@@ -147,7 +150,7 @@ function initApp() {
 
 function setDefaultFormDates() {
   const t = today();
-  ['j-date','r-date','s-date','e-date','habit-date','l-date','todo-date'].forEach(id => {
+  ['j-date','r-date','s-date','e-date','habit-date','l-date','todo-date','mens-start','mens-end'].forEach(id => {
     const el = document.getElementById(id);
     if (el && !el.value) el.value = t;
   });
@@ -161,6 +164,7 @@ function renderAll() {
   renderReflections();
   renderSosials();
   renderEmosi();
+  renderMenstruasi();
   renderLearnings();
   updateDashboard();
   updateRewardPage();
@@ -197,7 +201,7 @@ function toggleTheme() {
 
 const VALID_PAGES = new Set([
   'dashboard','target','habit','todo','reward','learning',
-  'journal','reflection','sosial','emosi','settings'
+  'journal','reflection','sosial','emosi','menstruasi','settings'
 ]);
 
 function showPage(id, btn) {
@@ -220,6 +224,7 @@ function showPage(id, btn) {
   if (id === 'dashboard') updateDashboard();
   if (id === 'reward')    updateRewardPage();
   if (id === 'learning')  updateLearningStats();
+  if (id === 'menstruasi') renderMenstruasi();
   if (id === 'settings')  updateSettingsPage();
 
   closeSidebar();
@@ -959,6 +964,250 @@ function updateLearningStats() {
 }
 
 /* ============================================================
+   16b. MENSTRUASI TRACKER
+   ============================================================ */
+
+/** Utilitas tanggal */
+function diffDays(a, b) {
+  return Math.round((new Date(b) - new Date(a)) / 86400000);
+}
+function addDays(dateStr, n) {
+  const d = new Date(dateStr);
+  d.setDate(d.getDate() + n);
+  return d.toISOString().slice(0, 10);
+}
+function fmtDateID(dateStr) {
+  if (!dateStr) return '—';
+  const [y, m, d] = dateStr.split('-');
+  const bulan = ['Jan','Feb','Mar','Apr','Mei','Jun','Jul','Agu','Sep','Okt','Nov','Des'];
+  return `${+d} ${bulan[+m - 1]} ${y}`;
+}
+
+const SYMPTOM_LABEL = {
+  kram: 'Kram', sakit_kepala: 'Sakit Kepala', kembung: 'Kembung',
+  mood_swing: 'Mood Swing', nyeri_punggung: 'Nyeri Punggung', lelah: 'Lelah',
+  mual: 'Mual', jerawat: 'Jerawat', payudara_nyeri: 'Payudara Nyeri',
+  insomnia: 'Insomnia', nafsu_makan: 'Nafsu Makan Naik', sembelit: 'Sembelit/Diare'
+};
+const MOOD_LABEL = {
+  baik: '😊 Baik', biasa: '😐 Biasa', sensitif: '😢 Sensitif',
+  mudah_marah: '😠 Mudah Marah', cemas: '😰 Cemas', depresi: '😔 Depresi'
+};
+const FLOW_LABEL = { ringan: '🩸 Ringan', sedang: '🩸🩸 Sedang', deras: '🩸🩸🩸 Deras' };
+
+let _selectedSymptoms = [];
+
+function toggleSymptom(btn) {
+  const sym = btn.dataset.sym;
+  if (_selectedSymptoms.includes(sym)) {
+    _selectedSymptoms = _selectedSymptoms.filter(s => s !== sym);
+    btn.classList.remove('active');
+  } else {
+    _selectedSymptoms.push(sym);
+    btn.classList.add('active');
+  }
+}
+
+function addMenstruasi() {
+  const start = document.getElementById('mens-start')?.value;
+  const end   = document.getElementById('mens-end')?.value;
+  const flow  = document.getElementById('mens-flow')?.value || 'sedang';
+  const mood  = document.getElementById('mens-mood')?.value || '';
+  const note  = document.getElementById('mens-note')?.value?.trim() || '';
+
+  if (!start) { showToast('⚠️ Isi tanggal mulai haid'); return; }
+  if (end && end < start) { showToast('⚠️ Tanggal selesai tidak boleh sebelum mulai'); return; }
+
+  state.menstruasis.unshift({ start, end, flow, symptoms: [..._selectedSymptoms], mood, note });
+  saveState();
+
+  // Reset form
+  document.getElementById('mens-end').value  = '';
+  document.getElementById('mens-mood').value = '';
+  document.getElementById('mens-note').value = '';
+  document.getElementById('mens-flow').value = 'sedang';
+  _selectedSymptoms = [];
+  document.querySelectorAll('.symptom-tag.active').forEach(b => b.classList.remove('active'));
+
+  renderMenstruasi();
+  showToast('🌸 Siklus berhasil disimpan!');
+}
+
+function delMenstruasi(i) {
+  if (!konfirmasiHapus('siklus ini')) return;
+  state.menstruasis.splice(i, 1);
+  saveState(); renderMenstruasi();
+  showToast('🗑️ Siklus dihapus');
+}
+
+function getMensStats() {
+  const data = [...state.menstruasis].sort((a, b) => a.start > b.start ? 1 : -1);
+  if (!data.length) return null;
+
+  // Durasi haid rata-rata
+  const durations = data.filter(d => d.end).map(d => diffDays(d.start, d.end) + 1);
+  const avgDuration = durations.length ? Math.round(durations.reduce((a, b) => a + b, 0) / durations.length) : 5;
+
+  // Panjang siklus rata-rata (jarak antar menstruasi)
+  const cycles = [];
+  for (let i = 1; i < data.length; i++) {
+    cycles.push(diffDays(data[i-1].start, data[i].start));
+  }
+  const avgCycle = cycles.length ? Math.round(cycles.reduce((a, b) => a + b, 0) / cycles.length) : 28;
+
+  const last = data[data.length - 1];
+  const lastStart = last.start;
+  const nextPeriod = addDays(lastStart, avgCycle);
+  const ovulasi = addDays(lastStart, avgCycle - 14);
+
+  // Fase saat ini
+  const todayStr = today();
+  const dayInCycle = diffDays(lastStart, todayStr) + 1;
+  let phase = '—';
+  if (dayInCycle >= 1 && dayInCycle <= avgDuration) phase = `🩸 Menstruasi (hari ke-${dayInCycle})`;
+  else if (dayInCycle <= 7) phase = '🌱 Folikular Awal';
+  else if (dayInCycle <= avgCycle - 14) phase = '🌼 Folikular';
+  else if (dayInCycle >= avgCycle - 16 && dayInCycle <= avgCycle - 12) phase = '🥚 Ovulasi';
+  else if (dayInCycle < avgCycle) phase = '🌙 Luteal';
+  else phase = '⏳ Menjelang Haid';
+
+  return { last: lastStart, avgCycle, avgDuration, nextPeriod, ovulasi, dayInCycle, phase };
+}
+
+function renderMenstruasi() {
+  const stats = getMensStats();
+  const data  = state.menstruasis;
+
+  // Summary cards
+  setText('mens-last-period',  stats ? fmtDateID(stats.last) : '—');
+  setText('mens-cycle-avg',    stats ? `${stats.avgCycle} hari` : '—');
+  setText('mens-next-ovulasi', stats ? fmtDateID(stats.ovulasi) : '—');
+
+  // Prediction box
+  setText('mens-next-period',    stats ? fmtDateID(stats.nextPeriod) : '—');
+  setText('mens-current-phase',  stats ? stats.phase : '—');
+  setText('mens-cycle-day',      stats ? `Hari ke-${Math.max(1, stats.dayInCycle)}` : '—');
+  setText('mens-duration-avg',   stats ? `${stats.avgDuration} hari` : '— hari');
+
+  // Tabel riwayat
+  const tbody = document.getElementById('mens-table');
+  if (tbody) {
+    if (!data.length) {
+      tbody.innerHTML = `<tr><td colspan="8" style="text-align:center;color:var(--text3);padding:24px">Belum ada data siklus</td></tr>`;
+    } else {
+      tbody.innerHTML = data.map((d, i) => {
+        const dur = d.end ? (diffDays(d.start, d.end) + 1) + ' hari' : '—';
+        const prevIdx = [...state.menstruasis].sort((a,b) => a.start>b.start?1:-1).findIndex(x => x.start === d.start);
+        const sorted  = [...state.menstruasis].sort((a,b) => a.start>b.start?1:-1);
+        const cycleLen = prevIdx > 0 ? diffDays(sorted[prevIdx-1].start, sorted[prevIdx].start) + ' hr' : '—';
+        const syms = d.symptoms?.map(s => SYMPTOM_LABEL[s] || s).join(', ') || '—';
+        return `<tr>
+          <td>${fmtDateID(d.start)}</td>
+          <td>${d.end ? fmtDateID(d.end) : '—'}</td>
+          <td>${dur}</td>
+          <td>${cycleLen}</td>
+          <td>${FLOW_LABEL[d.flow] || d.flow}</td>
+          <td style="font-size:11px;max-width:180px">${escapeHTML(syms)}</td>
+          <td>${d.mood ? MOOD_LABEL[d.mood] || d.mood : '—'}</td>
+          <td><button class="del-btn btn-danger" onclick="delMenstruasi(${i})" aria-label="Hapus siklus ini">🗑️</button></td>
+        </tr>`;
+      }).join('');
+    }
+  }
+
+  // Kalender siklus 3 bulan
+  renderMensCalendar(stats);
+
+  // Analisis gejala
+  const symsCount = {};
+  data.forEach(d => (d.symptoms || []).forEach(s => { symsCount[s] = (symsCount[s]||0)+1; }));
+  const symEl = document.getElementById('mens-symptom-analysis');
+  if (symEl) {
+    if (!Object.keys(symsCount).length) {
+      symEl.innerHTML = '<span style="color:var(--text3);font-size:13px">Belum ada data gejala</span>';
+    } else {
+      symEl.innerHTML = Object.entries(symsCount)
+        .sort((a,b)=>b[1]-a[1])
+        .map(([s,c]) => `<div class="symptom-badge">${SYMPTOM_LABEL[s]||s} <span class="sym-count">${c}×</span></div>`)
+        .join('');
+    }
+  }
+
+  updateSettingsCountMens();
+}
+
+function renderMensCalendar(stats) {
+  const el = document.getElementById('mens-calendar');
+  if (!el) return;
+  if (!stats) { el.innerHTML = '<p style="color:var(--text3);font-size:13px;padding:8px">Tambah data siklus untuk melihat kalender.</p>'; return; }
+
+  const todayStr = today();
+  const sorted   = [...state.menstruasis].sort((a,b)=>a.start>b.start?1:-1);
+
+  // Buat set tanggal haid dan prediksi
+  const periodDays = new Set();
+  const predictDays = new Set();
+  const ovulasiDays = new Set();
+
+  sorted.forEach(d => {
+    const dur = d.end ? diffDays(d.start, d.end)+1 : (stats.avgDuration||5);
+    for (let i=0; i<dur; i++) periodDays.add(addDays(d.start, i));
+  });
+
+  // Prediksi 2 siklus ke depan
+  for (let c=1; c<=2; c++) {
+    const predStart = addDays(stats.last, stats.avgCycle * c);
+    for (let i=0; i<stats.avgDuration; i++) predictDays.add(addDays(predStart, i));
+    ovulasiDays.add(addDays(predStart, -(14)));
+  }
+  // Ovulasi siklus ini
+  ovulasiDays.add(stats.ovulasi);
+
+  // Render 3 bulan: bulan lalu, ini, depan
+  const now = new Date(todayStr);
+  let html = '<div style="display:flex;gap:16px;flex-wrap:wrap">';
+  for (let mo = -1; mo <= 1; mo++) {
+    const d = new Date(now.getFullYear(), now.getMonth() + mo, 1);
+    const year = d.getFullYear();
+    const month = d.getMonth();
+    const monthName = ['Januari','Februari','Maret','April','Mei','Juni','Juli','Agustus','September','Oktober','November','Desember'][month];
+    const daysInMonth = new Date(year, month+1, 0).getDate();
+    const firstDay = new Date(year, month, 1).getDay(); // 0=Sun
+
+    html += `<div class="mens-cal-month">
+      <div class="mens-cal-title">${monthName} ${year}</div>
+      <div class="mens-cal-grid">
+        ${['Min','Sen','Sel','Rab','Kam','Jum','Sab'].map(d=>`<div class="mens-cal-dow">${d}</div>`).join('')}
+        ${Array(firstDay).fill('<div></div>').join('')}`;
+
+    for (let day=1; day<=daysInMonth; day++) {
+      const ds = `${year}-${String(month+1).padStart(2,'0')}-${String(day).padStart(2,'0')}`;
+      let cls = 'mens-cal-day';
+      if (ds === todayStr)       cls += ' cal-today';
+      if (periodDays.has(ds))    cls += ' cal-period';
+      if (predictDays.has(ds))   cls += ' cal-predict';
+      if (ovulasiDays.has(ds))   cls += ' cal-ovulasi';
+      html += `<div class="${cls}" title="${ds}">${day}</div>`;
+    }
+    html += `</div></div>`;
+  }
+  html += `</div>
+  <div class="mens-cal-legend">
+    <span><span class="legend-dot" style="background:#ec4899"></span> Menstruasi</span>
+    <span><span class="legend-dot" style="background:rgba(236,72,153,.3)"></span> Prediksi</span>
+    <span><span class="legend-dot" style="background:#a855f7"></span> Ovulasi</span>
+    <span><span class="legend-dot" style="background:var(--accent)"></span> Hari Ini</span>
+  </div>`;
+
+  el.innerHTML = html;
+}
+
+function updateSettingsCountMens() {
+  const el = document.getElementById('settings-count-menstruasi');
+  if (el) el.textContent = `${state.menstruasis.length} siklus tersimpan`;
+}
+
+/* ============================================================
    17. RESET DATA
    ============================================================ */
 
@@ -989,6 +1238,7 @@ function updateSettingsPage() {
   setText('settings-count-reflection', `${state.reflections.length} refleksi tersimpan`);
   setText('settings-count-sosial',   `${state.sosials.length} catatan tersimpan`);
   setText('settings-count-emosi',    `${state.emosis.length} catatan tersimpan`);
+  setText('settings-count-menstruasi', `${(state.menstruasis||[]).length} siklus tersimpan`);
   setText('settings-count-learning', `${state.learnings.length} sesi tersimpan`);
   setText('settings-count-streak',   `Streak ${state.streak} hari · ${state.checkins.length} check-in`);
   // Update tombol tema di settings
@@ -1002,6 +1252,7 @@ function clearSectionData(section) {
     todos: 'semua tugas to-do', journals: 'semua jurnal',
     reflections: 'semua refleksi', sosials: 'semua catatan sosial',
     emosis: 'semua catatan emosi', learnings: 'semua sesi belajar',
+    menstruasis: 'semua data siklus menstruasi',
     streak: 'data streak & check-in'
   };
   if (!konfirmasiHapus(labels[section] || section)) return;

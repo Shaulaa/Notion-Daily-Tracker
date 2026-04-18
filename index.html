@@ -72,6 +72,12 @@
       <span class="nav-icon" aria-hidden="true">🔮</span> Refleksi
     </button>
 
+    <div class="nav-section" role="heading" aria-level="2">Kesehatan</div>
+    <button class="nav-btn" onclick="showPage('menstruasi',this)"
+            aria-current="false" aria-label="Menstruasi Tracker">
+      <span class="nav-icon" aria-hidden="true">🌸</span> Siklus Menstruasi
+    </button>
+
     <div class="nav-section" role="heading" aria-level="2">Sosial &amp; Emosi</div>
     <button class="nav-btn" onclick="showPage('sosial',this)"
             aria-current="false" aria-label="Komunikasi dan Sosial">
@@ -713,6 +719,151 @@
     </section>
   </div>
 
+  <!-- ── MENSTRUASI TRACKER ───────────────── -->
+  <div id="page-menstruasi" class="page" role="region" aria-label="Menstruasi Tracker">
+    <div class="page-header">
+      <div>
+        <h1 class="page-title">🌸 Siklus Menstruasi</h1>
+        <p class="page-subtitle">Pantau siklus, gejala, dan kesehatan reproduksimu</p>
+      </div>
+    </div>
+
+    <!-- Ringkasan Siklus -->
+    <section class="grid3" style="margin-bottom:16px" aria-label="Ringkasan siklus">
+      <div class="metric-card">
+        <div class="metric-icon" style="background:rgba(236,72,153,.15);color:#ec4899" aria-hidden="true">📅</div>
+        <div class="metric-val" id="mens-last-period" aria-live="polite">—</div>
+        <div class="metric-lbl">Menstruasi Terakhir</div>
+      </div>
+      <div class="metric-card">
+        <div class="metric-icon" style="background:rgba(168,85,247,.15);color:#a855f7" aria-hidden="true">🔄</div>
+        <div class="metric-val" id="mens-cycle-avg" aria-live="polite">—</div>
+        <div class="metric-lbl">Rata-rata Siklus</div>
+      </div>
+      <div class="metric-card">
+        <div class="metric-icon" style="background:rgba(234,179,8,.15);color:#eab308" aria-hidden="true">🥚</div>
+        <div class="metric-val" id="mens-next-ovulasi" aria-live="polite">—</div>
+        <div class="metric-lbl">Perkiraan Ovulasi</div>
+      </div>
+    </section>
+
+    <!-- Prediksi -->
+    <section class="card" aria-label="Prediksi siklus berikutnya">
+      <div class="card-title">🔮 Prediksi Siklus</div>
+      <div id="mens-prediction-box" style="display:flex;gap:20px;flex-wrap:wrap">
+        <div style="flex:1;min-width:200px">
+          <div style="font-size:12px;color:var(--text3);margin-bottom:4px">Perkiraan Haid Berikutnya</div>
+          <div id="mens-next-period" style="font-size:20px;font-weight:700;color:var(--pink,#ec4899)">—</div>
+        </div>
+        <div style="flex:1;min-width:200px">
+          <div style="font-size:12px;color:var(--text3);margin-bottom:4px">Fase Saat Ini</div>
+          <div id="mens-current-phase" style="font-size:18px;font-weight:700;color:var(--accent)">—</div>
+        </div>
+        <div style="flex:1;min-width:200px">
+          <div style="font-size:12px;color:var(--text3);margin-bottom:4px">Hari ke- dalam Siklus</div>
+          <div id="mens-cycle-day" style="font-size:20px;font-weight:700;color:var(--text)">—</div>
+        </div>
+        <div style="flex:1;min-width:200px">
+          <div style="font-size:12px;color:var(--text3);margin-bottom:4px">Durasi Rata-rata Haid</div>
+          <div id="mens-duration-avg" style="font-size:20px;font-weight:700;color:var(--text)">— hari</div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Catat Siklus Baru -->
+    <section class="card" aria-label="Catat siklus baru">
+      <div class="card-title">➕ Catat Siklus Baru</div>
+      <div class="row-form">
+        <div>
+          <label for="mens-start">Tanggal Mulai Haid</label>
+          <input type="date" id="mens-start" aria-required="true">
+        </div>
+        <div>
+          <label for="mens-end">Tanggal Selesai Haid</label>
+          <input type="date" id="mens-end">
+        </div>
+        <div>
+          <label for="mens-flow">Intensitas Aliran</label>
+          <select id="mens-flow" aria-label="Intensitas aliran haid">
+            <option value="ringan">🩸 Ringan</option>
+            <option value="sedang" selected>🩸🩸 Sedang</option>
+            <option value="deras">🩸🩸🩸 Deras</option>
+          </select>
+        </div>
+      </div>
+
+      <div style="margin-top:14px">
+        <label style="font-size:13px;font-weight:600;color:var(--text2);display:block;margin-bottom:10px">Gejala yang Dirasakan</label>
+        <div class="mens-symptom-grid" id="mens-symptom-grid">
+          <button type="button" class="symptom-tag" data-sym="kram" onclick="toggleSymptom(this)">😣 Kram</button>
+          <button type="button" class="symptom-tag" data-sym="sakit_kepala" onclick="toggleSymptom(this)">🤕 Sakit Kepala</button>
+          <button type="button" class="symptom-tag" data-sym="kembung" onclick="toggleSymptom(this)">🫃 Kembung</button>
+          <button type="button" class="symptom-tag" data-sym="mood_swing" onclick="toggleSymptom(this)">😤 Mood Swing</button>
+          <button type="button" class="symptom-tag" data-sym="nyeri_punggung" onclick="toggleSymptom(this)">🔙 Nyeri Punggung</button>
+          <button type="button" class="symptom-tag" data-sym="lelah" onclick="toggleSymptom(this)">😴 Lelah</button>
+          <button type="button" class="symptom-tag" data-sym="mual" onclick="toggleSymptom(this)">🤢 Mual</button>
+          <button type="button" class="symptom-tag" data-sym="jerawat" onclick="toggleSymptom(this)">😶 Jerawat</button>
+          <button type="button" class="symptom-tag" data-sym="payudara_nyeri" onclick="toggleSymptom(this)">💛 Payudara Nyeri</button>
+          <button type="button" class="symptom-tag" data-sym="insomnia" onclick="toggleSymptom(this)">🌙 Insomnia</button>
+          <button type="button" class="symptom-tag" data-sym="nafsu_makan" onclick="toggleSymptom(this)">🍫 Nafsu Makan Naik</button>
+          <button type="button" class="symptom-tag" data-sym="sembelit" onclick="toggleSymptom(this)">😖 Sembelit / Diare</button>
+        </div>
+      </div>
+
+      <div style="margin-top:14px">
+        <label for="mens-mood">Mood Saat Ini</label>
+        <select id="mens-mood" aria-label="Mood selama haid">
+          <option value="">— Pilih mood —</option>
+          <option value="baik">😊 Baik</option>
+          <option value="biasa">😐 Biasa</option>
+          <option value="sensitif">😢 Sensitif</option>
+          <option value="mudah_marah">😠 Mudah Marah</option>
+          <option value="cemas">😰 Cemas</option>
+          <option value="depresi">😔 Depresi</option>
+        </select>
+      </div>
+
+      <div style="margin-top:14px">
+        <label for="mens-note">Catatan Tambahan</label>
+        <textarea id="mens-note" placeholder="Catatan gejala lain, obat yang diminum, dll..."></textarea>
+      </div>
+
+      <button class="btn btn-primary" style="margin-top:18px" onclick="addMenstruasi()">🌸 Simpan Siklus</button>
+    </section>
+
+    <!-- Kalender Mini -->
+    <section class="card" aria-label="Kalender siklus">
+      <div class="card-title">🗓️ Kalender Siklus (3 Bulan Terakhir)</div>
+      <div id="mens-calendar" style="overflow-x:auto"></div>
+    </section>
+
+    <!-- Riwayat Siklus -->
+    <section class="card" style="overflow-x:auto" aria-label="Riwayat siklus menstruasi">
+      <div class="card-title">📋 Riwayat Siklus</div>
+      <table aria-label="Tabel riwayat siklus menstruasi">
+        <thead>
+          <tr>
+            <th scope="col">Mulai</th>
+            <th scope="col">Selesai</th>
+            <th scope="col">Durasi</th>
+            <th scope="col">Siklus</th>
+            <th scope="col">Intensitas</th>
+            <th scope="col">Gejala</th>
+            <th scope="col">Mood</th>
+            <th scope="col"><span class="sr-only">Aksi</span></th>
+          </tr>
+        </thead>
+        <tbody id="mens-table" aria-live="polite"></tbody>
+      </table>
+    </section>
+
+    <!-- Analisis Gejala -->
+    <section class="card" aria-label="Analisis gejala terbanyak">
+      <div class="card-title">📊 Analisis Gejala Terbanyak</div>
+      <div id="mens-symptom-analysis" style="display:flex;flex-wrap:wrap;gap:10px;margin-top:8px"></div>
+    </section>
+  </div>
+
   <!-- ── SETTINGS ──────────────────────────── -->
   <div id="page-settings" class="page" role="region" aria-label="Pengaturan">
     <div class="page-header">
@@ -786,6 +937,14 @@
           <div style="font-size:12px;color:var(--text3);margin-top:2px" id="settings-count-sosial">0 catatan tersimpan</div>
         </div>
         <button class="btn btn-danger btn-sm" onclick="clearSectionData('sosials')">🗑️ Hapus Semua</button>
+      </div>
+
+      <div style="display:flex;align-items:center;justify-content:space-between;padding:14px 0;border-bottom:1px solid var(--border)">
+        <div>
+          <div style="font-size:14px;font-weight:600;color:var(--text)">🌸 Siklus Menstruasi</div>
+          <div style="font-size:12px;color:var(--text3);margin-top:2px" id="settings-count-menstruasi">0 siklus tersimpan</div>
+        </div>
+        <button class="btn btn-danger btn-sm" onclick="clearSectionData('menstruasis')">🗑️ Hapus Semua</button>
       </div>
 
       <div style="display:flex;align-items:center;justify-content:space-between;padding:14px 0;border-bottom:1px solid var(--border)">

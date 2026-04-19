@@ -34,6 +34,133 @@
 
 'use strict';
 
+import {
+  loginWithGoogle, logoutUser, onAuthChange, getCurrentUser,
+  addItem, getItems, updateItem, deleteItem, deleteAllItems,
+  getStreak, updateStreak, achieveMilestone
+} from './firebase.js';
+
+// ============================================================
+// AUTH HANDLER
+// ============================================================
+
+// Pantau perubahan auth state
+onAuthChange((user) => {
+  if (user) {
+    // Mobile topbar
+    document.getElementById("auth-logged-out").style.display = "none";
+    document.getElementById("auth-logged-in").style.display = "block";
+    const avatarSrc = user.photoURL || "";
+    const avatarEl = document.getElementById("user-avatar");
+    const avatarMenuEl = document.getElementById("user-avatar-menu");
+    if (avatarEl) avatarEl.src = avatarSrc;
+    if (avatarMenuEl) avatarMenuEl.src = avatarSrc;
+    document.getElementById("user-name").textContent = user.displayName;
+
+    // Desktop dropdown
+    const dropOut = document.getElementById("auth-drop-loggedout");
+    const dropIn  = document.getElementById("auth-drop-loggedin");
+    if (dropOut) dropOut.style.display = "none";
+    if (dropIn)  dropIn.style.display = "block";
+    // Tampilkan avatar di trigger button
+    const triggerIcon = document.getElementById("auth-trigger-icon");
+    if (triggerIcon) {
+      if (avatarSrc) {
+        triggerIcon.innerHTML = `<img src="${avatarSrc}" width="28" height="28" style="border-radius:50%;display:block">`;
+        triggerIcon.style.background = 'transparent';
+        triggerIcon.style.border = '1.5px solid var(--accent)';
+      } else {
+        triggerIcon.textContent = (user.displayName || 'U')[0].toUpperCase();
+      }
+    }
+    const triggerLabel = document.getElementById("auth-trigger-label");
+    if (triggerLabel) triggerLabel.textContent = (user.displayName || '').split(' ')[0];
+    // Isi data di dropdown
+    const dropAvatar = document.getElementById("auth-drop-avatar");
+    const dropName   = document.getElementById("auth-drop-name");
+    const dropEmail  = document.getElementById("auth-drop-email");
+    if (dropAvatar) dropAvatar.src = avatarSrc;
+    if (dropName)   dropName.textContent = user.displayName || '';
+    if (dropEmail)  dropEmail.textContent = user.email || '';
+
+    loadAllData();
+  } else {
+    // Mobile topbar
+    document.getElementById("auth-logged-out").style.display = "block";
+    document.getElementById("auth-logged-in").style.display = "none";
+    // Desktop dropdown — reset ke state belum login
+    const dropOut = document.getElementById("auth-drop-loggedout");
+    const dropIn  = document.getElementById("auth-drop-loggedin");
+    if (dropOut) dropOut.style.display = "block";
+    if (dropIn)  dropIn.style.display = "none";
+    const triggerIcon = document.getElementById("auth-trigger-icon");
+    if (triggerIcon) { triggerIcon.innerHTML = '✦'; triggerIcon.style.background = 'var(--accent-glow)'; }
+    const triggerLabel = document.getElementById("auth-trigger-label");
+    if (triggerLabel) triggerLabel.textContent = 'Akun';
+  }
+});
+
+// ============================================================
+// FIREBASE DATA LOADERS
+// ============================================================
+
+async function loadAllData() {
+  if (!getCurrentUser()) return;
+  try {
+    const [
+      journals, reflections, sosials, emosis, menstruasis,
+      learnings, targets, todos, habits, streakData
+    ] = await Promise.all([
+      getItems('journals'),
+      getItems('reflections'),
+      getItems('communications'),
+      getItems('emotions'),
+      getItems('menstrual', 'startDate'),
+      getItems('learnings'),
+      getItems('targets', 'createdAt'),
+      getItems('todos', 'createdAt'),
+      getItems('habits', 'createdAt'),
+      getStreak()
+    ]);
+
+    state.journals     = journals.map(j => ({ date: j.date, did: j.activity || j.did || '', good: j.positive || j.good || '', improve: j.improve || '', mood: j.mood || '' }));
+    state.reflections  = reflections.map(r => ({ date: r.date, grow: r.growth || r.grow || '', lack: r.lacking || r.lack || '', plan: r.plan || '' }));
+    state.sosials      = sosials.map(s => ({ date: s.date, who: s.person || s.who || '', topic: s.topic || '', improve: s.improvement || s.improve || '', note: s.notes || s.note || '' }));
+    state.emosis       = emosis.map(e => ({ date: e.date, mood: e.mood || '', cause: e.cause || '', solution: e.solution || '' }));
+    state.menstruasis  = menstruasis.map(m => ({ start: m.startDate || m.start, end: m.endDate || m.end, flow: m.intensity || m.flow || 'sedang', symptoms: m.symptoms || [], mood: m.mood || '', note: m.notes || m.note || '' }));
+    state.learnings    = learnings.map(l => ({ date: l.date, subject: l.topic || l.subject || '', what: l.content || l.what || '', insight: l.insight || '', duration: l.duration || '', cat: l.category || l.cat || '' }));
+    state.targets      = targets.map(t => ({ _id: t.id, name: t.name || '', deadline: t.deadline || '', status: t.status || 'on_progress' }));
+    state.todos        = todos.map((t, i) => ({ id: t.id || i + 1, text: t.text || '', done: !!t.done, createdAt: t.createdAt, dueDate: t.date || '', dueTime: t.time || '' }));
+    state.habits       = habits.map(h => h.name);
+
+    state.habitData = {};
+    habits.forEach((h, hi) => {
+      (h.dates || []).forEach(date => {
+        state.habitData[`${date}_${hi}`] = 'done';
+      });
+    });
+
+    state.streak      = streakData.currentStreak || 0;
+    state.lastCheckin = streakData.lastCheckIn || '';
+    state.checkins    = (streakData.checkIns || []).map(date => ({ date, streak: streakData.currentStreak }));
+
+    renderAll();
+    updateDashboard();
+    showToast('✓ Data berhasil dimuat dari cloud');
+  } catch (e) {
+    console.error('[Trackify] loadAllData error:', e);
+    showToast('⚠️ Gagal memuat data: ' + e.message);
+  }
+}
+
+function clearAllDisplays() {
+  state = createDefaultState();
+  habitRows = [today()];
+  selectedCat = '';
+  renderAll();
+  updateDashboard();
+}
+
 /*1. STORAGE LAYER*/
 
 const StorageManager = {
@@ -126,21 +253,97 @@ function saveState() {
   StorageManager.save(state);
 }
 
+// ============================================================
+// FIREBASE SYNC — fire-and-forget, tidak blokir UI
+// ============================================================
+
+/**
+ * Sync penuh semua koleksi ke Firestore.
+ * Dipanggil setiap kali ada mutasi data.
+ * Strategi: deleteAllItems lalu addItem ulang (simple, stateless).
+ */
+async function syncToFirebase() {
+  if (!getCurrentUser()) return;
+  try {
+    // Sync tiap koleksi secara paralel
+    await Promise.all([
+      syncCollection('journals', state.journals.map(j => ({
+        date: j.date, activity: j.did, positive: j.good,
+        improve: j.improve, mood: j.mood
+      }))),
+      syncCollection('reflections', state.reflections.map(r => ({
+        date: r.date, growth: r.grow, lacking: r.lack, plan: r.plan
+      }))),
+      syncCollection('communications', state.sosials.map(s => ({
+        date: s.date, person: s.who, topic: s.topic,
+        improvement: s.improve, notes: s.note
+      }))),
+      syncCollection('emotions', state.emosis.map(e => ({
+        date: e.date, mood: e.mood, cause: e.cause, solution: e.solution
+      }))),
+      syncCollection('menstrual', state.menstruasis.map(m => ({
+        startDate: m.start, endDate: m.end, intensity: m.flow,
+        symptoms: m.symptoms, mood: m.mood, notes: m.note
+      }))),
+      syncCollection('learnings', state.learnings.map(l => ({
+        date: l.date, topic: l.subject, content: l.what,
+        insight: l.insight, duration: l.duration, category: l.cat
+      }))),
+      syncCollection('targets', state.targets.map(t => ({
+        name: t.name, deadline: t.deadline, status: t.status
+      }))),
+      syncCollection('todos', state.todos.map(t => ({
+        text: t.text, done: t.done, date: t.dueDate, time: t.dueTime
+      }))),
+      syncHabits(),
+      updateStreak({
+        currentStreak: state.streak,
+        lastCheckIn: state.lastCheckin,
+        checkIns: state.checkins.map(c => c.date)
+      })
+    ]);
+  } catch (e) {
+    console.warn('[Trackify] syncToFirebase error:', e.message);
+  }
+}
+
+async function syncCollection(colName, items) {
+  await deleteAllItems(colName);
+  await Promise.all(items.map(item => addItem(colName, item)));
+}
+
+async function syncHabits() {
+  await deleteAllItems('habits');
+  await Promise.all(state.habits.map((name, hi) => {
+    const dates = Object.entries(state.habitData)
+      .filter(([k, v]) => k.endsWith(`_${hi}`) && v === 'done')
+      .map(([k]) => k.split('_')[0]);
+    return addItem('habits', { name, dates });
+  }));
+}
+
+/** saveState + sync ke Firebase */
+function saveAndSync() {
+  saveState();
+  syncToFirebase(); // intentionally not awaited
+}
+
 /* ============================================================
    3. INISIALISASI
    ============================================================ */
 
 function initApp() {
-  const saved = StorageManager.load();
-  if (saved) {
-    // Gabungkan dengan default agar field baru tidak hilang
-    state = Object.assign(createDefaultState(), saved);
-  }
+  // Selalu mulai dari state kosong — data diambil dari Firebase saat login
+  state = createDefaultState();
 
-  // Pulihkan variabel pendukung
-  habitRows   = Array.isArray(state.habitRows) && state.habitRows.length
-                  ? state.habitRows : [today()];
-  selectedCat = state.selectedCat || '';
+  // Pulihkan tema dari localStorage agar tidak flicker saat refresh
+  try {
+    const savedTheme = localStorage.getItem('Trackify_theme');
+    if (savedTheme === 'light' || savedTheme === 'dark') state.theme = savedTheme;
+  } catch(e) {}
+
+  habitRows   = [today()];
+  selectedCat = '';
 
   applyTheme(state.theme);
   setDefaultFormDates();
@@ -191,7 +394,7 @@ function applyTheme(theme) {
 function toggleTheme() {
   const next = state.theme === 'dark' ? 'light' : 'dark';
   applyTheme(next);
-  saveState();
+  try { localStorage.setItem('Trackify_theme', next); } catch(e) {}
   showToast(next === 'dark' ? '🌙 Mode Gelap aktif' : '☀️ Mode Terang aktif');
 }
 
@@ -235,7 +438,10 @@ function showPage(id, btn) {
 }
 
 // Quick action shortcuts
-function quickJournal()  { showPage('journal',  navBtn(8));  focusEl('j-did'); }
+// navBtn index sesuai urutan .nav-btn di HTML:
+// [0]=Dashboard [1]=Target [2]=Habit [3]=Todo [4]=Reward [5]=Learning
+// [6]=Journal [7]=Reflection [8]=Menstruasi [9]=Sosial [10]=Emosi [11]=Settings
+function quickJournal()  { showPage('journal',  navBtn(6));  focusEl('j-did'); }
 function quickHabit()    { showPage('habit',     navBtn(2)); }
 function quickTodo()     { showPage('todo',       navBtn(3));  focusEl('todo-input'); }
 function quickLearning() { showPage('learning',   navBtn(5));  focusEl('l-subject'); }
@@ -385,7 +591,7 @@ function updateDashboard() {
       tp.innerHTML = state.todos.slice(0, 5).map(t => `
         <div class="todo-item" role="listitem">
           <button class="todo-check ${t.done?'done':''}"
-                  onclick="toggleTodoById(${t.id})"
+                  data-action="toggleTodoById(${t.id})"
                   aria-label="${t.done?'Tandai belum selesai':'Tandai selesai'}: ${escapeHTML(t.text)}"
                   aria-pressed="${t.done}">
             ${t.done ? '✓' : ''}
@@ -435,7 +641,7 @@ function renderTargets() {
       <td data-label="Deadline" style="color:var(--text3);font-size:12px"><time datetime="${t.deadline||''}">${t.deadline||'—'}</time></td>
       <td data-label="Status">
         <button class="status-toggle-btn ${isDone ? 'status-done' : 'status-progress'}"
-                onclick="toggleTargetStatus(${i})"
+                data-action="toggleTargetStatus(${i})"
                 aria-label="Klik untuk ubah status: ${isDone ? 'Selesai' : 'On Progress'}"
                 title="Klik untuk ubah status">
           ${isDone ? '✓ Selesai' : '⏳ Berjalan'}
@@ -448,7 +654,10 @@ function renderTargets() {
           <div class="prog-fill" style="width:${prog}%"></div>
         </div>
       </td>
-      <td data-label=""><button class="del-btn" onclick="delTarget(${i})" aria-label="Hapus target: ${escapeHTML(t.name)}"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg></button></td>
+      <td data-label=""><div style="display:flex;gap:6px;align-items:center;">
+        <button class="edit-btn" data-action="editTarget(${i})" aria-label="Edit target: ${escapeHTML(t.name)}"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg></button>
+        <button class="del-btn" data-action="delTarget(${i})" aria-label="Hapus target: ${escapeHTML(t.name)}"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg></button>
+      </div></td>
     </tr>`;
   }).join('');
   setTimeout(registerAllLongPress, 60);
@@ -461,7 +670,7 @@ function addTarget() {
   if (!name) { showToast('⚠️ Nama target tidak boleh kosong'); document.getElementById('t-name')?.focus(); return; }
   state.targets.push({ name, deadline, status: status || 'on_progress' });
   clearFields('t-name','t-deadline');
-  saveState(); renderTargets(); updateDashboard();
+  saveAndSync(); renderTargets(); updateDashboard();
   showToast('✓ Target berhasil ditambahkan');
 }
 
@@ -469,14 +678,14 @@ function delTarget(i) {
   if (!state.targets[i]) return;
   if (!konfirmasiHapus(`target "${state.targets[i].name}"`)) return;
   state.targets.splice(i, 1);
-  saveState(); renderTargets(); updateDashboard();
+  saveAndSync(); renderTargets(); updateDashboard();
   showToast('🗑️ Target dihapus');
 }
 
 function toggleTargetStatus(i) {
   if (!state.targets[i]) return;
   state.targets[i].status = state.targets[i].status === 'done' ? 'on_progress' : 'done';
-  saveState(); renderTargets(); updateDashboard();
+  saveAndSync(); renderTargets(); updateDashboard();
   showToast(state.targets[i].status === 'done' ? '✅ Target ditandai selesai' : '⏳ Target kembali on progress');
 }
 
@@ -499,10 +708,10 @@ function renderHabit() {
   head.innerHTML = '<tr><th scope="col">Tanggal</th>' +
     state.habits.map((h, hi) => `
       <th scope="col" class="habit-col-th" style="text-align:center;min-width:80px;cursor:pointer;user-select:none"
-          onclick="toggleHabitDelBtn(this, ${hi})"
+          data-action="toggleHabitDelBtn(this, ${hi})"
           aria-label="Klik/tahan untuk hapus habit: ${escapeHTML(h)}">
         <span class="habit-col-name">${escapeHTML(h)}</span>
-        <button class="habit-col-del" onclick="event.stopPropagation();delHabit(${hi})"
+        <button class="habit-col-del" data-action="delHabit(${hi})"
                 aria-label="Hapus habit: ${escapeHTML(h)}">${TRASH}</button>
       </th>`).join('') +
     '<th scope="col"><span class="sr-only">Hapus baris</span></th></tr>';
@@ -523,7 +732,7 @@ function renderHabit() {
       const label = val==='done' ? 'Selesai' : val==='skip' ? 'Dilewati' : 'Belum';
       return `<td class="check-cell">
         <button class="habit-check ${val==='done'?'done':val==='skip'?'skip':''}"
-                onclick="toggleHabit('${row}',${hi})"
+                data-action="toggleHabit('${row}',${hi})"
                 aria-label="${escapeHTML(h)} pada ${row}: ${label}"
                 aria-pressed="${val==='done'}">
           ${val==='done'?'✓':val==='skip'?'✕':''}
@@ -534,7 +743,7 @@ function renderHabit() {
       <td style="white-space:nowrap;color:var(--text3);font-size:12px;font-weight:600">
         <time datetime="${row}">${row}</time>
       </td>${cells}
-      <td><button class="del-btn" onclick="delHabitRow(${ri})" aria-label="Hapus baris ${row}"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg></button></td>
+      <td><button class="del-btn" data-action="delHabitRow(${ri})" aria-label="Hapus baris ${row}"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg></button></td>
     </tr>`;
   }).join('');
   setTimeout(registerAllLongPress, 60);
@@ -544,7 +753,7 @@ function toggleHabit(row, hi) {
   const key = `${row}_${hi}`;
   const cur = state.habitData[key] || 'none';
   state.habitData[key] = cur==='none' ? 'done' : cur==='done' ? 'skip' : 'none';
-  saveState(); renderHabit(); updateDashboard();
+  saveAndSync(); renderHabit(); updateDashboard();
 }
 
 function addHabit() {
@@ -552,27 +761,27 @@ function addHabit() {
   if (!v) { showToast('⚠️ Nama habit tidak boleh kosong'); document.getElementById('new-habit')?.focus(); return; }
   if (state.habits.includes(v)) { showToast('⚠️ Habit ini sudah ada'); return; }
   state.habits.push(v); clearFields('new-habit');
-  saveState(); renderHabit(); showToast('✓ Habit ditambahkan');
+  saveAndSync(); renderHabit(); showToast('✓ Habit ditambahkan');
 }
 
 function addHabitRow() {
   const d = document.getElementById('habit-date')?.value || today();
   if (habitRows.includes(d)) { showToast('ℹ️ Tanggal tersebut sudah ada'); return; }
   habitRows.push(d); habitRows.sort();
-  saveState(); renderHabit(); showToast(`✓ Tanggal ${d} ditambahkan`);
+  saveAndSync(); renderHabit(); showToast(`✓ Tanggal ${d} ditambahkan`);
 }
 
 function delHabitRow(i) {
   if (i < 0 || i >= habitRows.length) return;
   if (!konfirmasiHapus(`baris tanggal ${habitRows[i]}`)) return;
-  habitRows.splice(i, 1); saveState(); renderHabit();
+  habitRows.splice(i, 1); saveAndSync(); renderHabit();
 }
 
 function delHabit(i) {
   if (!state.habits[i]) return;
   clearTimeout(_habitDelTimer);
   if (!konfirmasiHapus(`habit "${state.habits[i]}"`)) return;
-  state.habits.splice(i, 1); saveState(); renderHabit(); showToast('🗑️ Habit dihapus');
+  state.habits.splice(i, 1); saveAndSync(); renderHabit(); showToast('🗑️ Habit dihapus');
 }
 
 /** Tap nama kolom habit → toggle tampil/sembunyi ikon sampah
@@ -615,7 +824,7 @@ function renderTodo() {
     }
     return `<div class="todo-item" role="listitem">
       <button class="todo-check ${t.done?'done':''}"
-              onclick="toggleTodoById(${t.id})"
+              data-action="toggleTodoById(${t.id})"
               aria-label="${t.done?'Tandai belum selesai':'Tandai selesai'}: ${escapeHTML(t.text)}"
               aria-pressed="${t.done}">
         ${t.done ? '✓' : ''}
@@ -624,7 +833,8 @@ function renderTodo() {
         <span class="todo-text ${t.done?'done':''}">${escapeHTML(t.text)}</span>
         ${dueMeta}
       </div>
-      <button class="del-btn" onclick="delTodoById(${t.id})"
+      <button class="edit-btn" data-action="editTodo(${t.id})" aria-label="Edit tugas: ${escapeHTML(t.text)}"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg></button>
+      <button class="del-btn" data-action="delTodoById(${t.id})"
               aria-label="Hapus tugas: ${escapeHTML(t.text)}"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg></button>
     </div>`;
   }).join('');
@@ -632,18 +842,20 @@ function renderTodo() {
 }
 
 function toggleTodoById(id) {
-  const todo = state.todos.find(t => t.id === id);
+  // eslint-disable-next-line eqeqeq
+  const todo = state.todos.find(t => t.id == id);
   if (!todo) return;
   todo.done = !todo.done;
-  saveState(); renderTodo(); updateDashboard();
+  saveAndSync(); renderTodo(); updateDashboard();
 }
 
 function delTodoById(id) {
-  const idx = state.todos.findIndex(t => t.id === id);
+  // eslint-disable-next-line eqeqeq
+  const idx = state.todos.findIndex(t => t.id == id);
   if (idx === -1) return;
   if (!konfirmasiHapus(`tugas "${state.todos[idx].text}"`)) return;
   state.todos.splice(idx, 1);
-  saveState(); renderTodo(); updateDashboard(); showToast('🗑️ Tugas dihapus');
+  saveAndSync(); renderTodo(); updateDashboard(); showToast('🗑️ Tugas dihapus');
 }
 
 function addTodo() {
@@ -661,7 +873,7 @@ function addTodo() {
     dueTime: timeVal
   });
   if (input) input.value = '';
-  saveState(); renderTodo(); updateDashboard(); showToast('✓ Tugas ditambahkan');
+  saveAndSync(); renderTodo(); updateDashboard(); showToast('✓ Tugas ditambahkan');
 }
 
 // Alias untuk kompatibilitas event handler di HTML yang menggunakan index
@@ -692,7 +904,7 @@ function saveJournal() {
   const moodEl = document.getElementById('j-mood');
   if (moodEl) moodEl.value = '';
   state.selectedMood = '';
-  saveState(); renderJournals(); updateDashboard(); updateRewardPage();
+  saveAndSync(); renderJournals(); updateDashboard(); updateRewardPage();
   showToast('✓ Jurnal tersimpan');
 }
 
@@ -706,7 +918,8 @@ function renderJournals() {
         <span class="journal-date">📅 <time datetime="${j.date}">${j.date}</time></span>
         <div style="display:flex;align-items:center;gap:8px">
           ${j.mood ? `<span class="badge badge-purple">${escapeHTML(j.mood)}</span>` : ''}
-          <button class="del-btn" onclick="delJournal(${i})" aria-label="Hapus jurnal ${j.date}"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg></button>
+          <button class="edit-btn" data-action="editJournal(${i})" aria-label="Edit jurnal ${j.date}"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg></button>
+          <button class="del-btn" data-action="delJournal(${i})" aria-label="Hapus jurnal ${j.date}"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg></button>
         </div>
       </div>
       <div style="font-size:13px;color:var(--text2);line-height:1.6">
@@ -718,7 +931,7 @@ function renderJournals() {
 
 function delJournal(i) {
   if (!konfirmasiHapus('jurnal ini')) return;
-  state.journals.splice(i, 1); saveState(); renderJournals(); updateDashboard(); updateRewardPage();
+  state.journals.splice(i, 1); saveAndSync(); renderJournals(); updateDashboard(); updateRewardPage();
   showToast('🗑️ Jurnal dihapus');
 }
 
@@ -734,7 +947,7 @@ function saveReflection() {
   if (!grow) { showToast('⚠️ Isi kolom "Yang sudah berkembang"'); document.getElementById('r-grow')?.focus(); return; }
   state.reflections.unshift({ date, grow, lack, plan });
   clearFields('r-grow','r-lack','r-plan');
-  saveState(); renderReflections(); showToast('✓ Refleksi tersimpan');
+  saveAndSync(); renderReflections(); showToast('✓ Refleksi tersimpan');
 }
 
 function renderReflections() {
@@ -745,7 +958,10 @@ function renderReflections() {
     <article class="journal-entry">
       <div class="journal-meta">
         <span class="journal-date">📅 <time datetime="${r.date}">${r.date}</time></span>
-        <button class="del-btn" onclick="delReflection(${i})" aria-label="Hapus refleksi ${r.date}"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg></button>
+        <div style="display:flex;align-items:center;gap:8px">
+          <button class="edit-btn" data-action="editReflection(${i})" aria-label="Edit refleksi ${r.date}"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg></button>
+          <button class="del-btn" data-action="delReflection(${i})" aria-label="Hapus refleksi ${r.date}"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg></button>
+        </div>
       </div>
       <div style="font-size:13px;line-height:1.7">
         <span style="color:var(--green);font-weight:600">Berkembang: </span><span style="color:var(--text2)">${escapeHTML(r.grow)}</span><br>
@@ -758,7 +974,7 @@ function renderReflections() {
 
 function delReflection(i) {
   if (!konfirmasiHapus('refleksi ini')) return;
-  state.reflections.splice(i, 1); saveState(); renderReflections();
+  state.reflections.splice(i, 1); saveAndSync(); renderReflections();
   showToast('🗑️ Refleksi dihapus');
 }
 
@@ -775,7 +991,7 @@ function saveSosial() {
   if (!who) { showToast('⚠️ Isi nama orang yang diajak bicara'); document.getElementById('s-who')?.focus(); return; }
   state.sosials.unshift({ date, who, topic, improve, note });
   clearFields('s-who','s-topic','s-improve','s-note');
-  saveState(); renderSosials(); showToast('✓ Catatan sosial tersimpan');
+  saveAndSync(); renderSosials(); showToast('✓ Catatan sosial tersimpan');
 }
 
 function renderSosials() {
@@ -788,7 +1004,8 @@ function renderSosials() {
         <span class="journal-date">📅 <time datetime="${s.date}">${s.date}</time></span>
         <div style="display:flex;align-items:center;gap:8px">
           <span class="badge badge-blue">${escapeHTML(s.who)}</span>
-          <button class="del-btn" onclick="delSosial(${i})" aria-label="Hapus catatan sosial ${s.date}"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg></button>
+          <button class="edit-btn" data-action="editSosial(${i})" aria-label="Edit catatan sosial ${s.date}"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg></button>
+          <button class="del-btn" data-action="delSosial(${i})" aria-label="Hapus catatan sosial ${s.date}"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg></button>
         </div>
       </div>
       ${s.topic   ? `<div style="font-size:13px;color:var(--text2);margin-top:4px">📌 ${escapeHTML(s.topic)}</div>` : ''}
@@ -799,7 +1016,7 @@ function renderSosials() {
 
 function delSosial(i) {
   if (!konfirmasiHapus('catatan sosial ini')) return;
-  state.sosials.splice(i, 1); saveState(); renderSosials();
+  state.sosials.splice(i, 1); saveAndSync(); renderSosials();
   showToast('🗑️ Catatan sosial dihapus');
 }
 
@@ -821,7 +1038,7 @@ function addEmosi() {
   if (!mood) { showToast('⚠️ Pilih mood terlebih dahulu'); return; }
   state.emosis.unshift({ date, mood, cause, solution });
   clearFields('e-cause','e-solution');
-  saveState(); renderEmosi(); showToast('✓ Emosi dicatat');
+  saveAndSync(); renderEmosi(); showToast('✓ Emosi dicatat');
 }
 
 function renderEmosi() {
@@ -834,14 +1051,17 @@ function renderEmosi() {
       <td data-label="Mood"><span class="badge ${MOOD_COLOR[e.mood]||'badge-purple'}">${escapeHTML(e.mood)}</span></td>
       <td data-label="Penyebab" style="font-size:12px;color:var(--text2)">${escapeHTML(e.cause)||'—'}</td>
       <td data-label="Solusi" style="font-size:12px;color:var(--text2)">${escapeHTML(e.solution)||'—'}</td>
-      <td data-label=""><button class="del-btn" onclick="delEmosi(${i})" aria-label="Hapus catatan emosi ${e.date}"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg></button></td>
+      <td data-label=""><div style="display:flex;gap:6px;">
+        <button class="edit-btn" data-action="editEmosi(${i})" aria-label="Edit catatan emosi ${e.date}"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg></button>
+        <button class="del-btn" data-action="delEmosi(${i})" aria-label="Hapus catatan emosi ${e.date}"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg></button>
+      </div></td>
     </tr>`).join('');
   setTimeout(registerAllLongPress, 60);
 }
 
 function delEmosi(i) {
   if (!konfirmasiHapus('catatan emosi ini')) return;
-  state.emosis.splice(i, 1); saveState(); renderEmosi(); showToast('🗑️ Catatan emosi dihapus');
+  state.emosis.splice(i, 1); saveAndSync(); renderEmosi(); showToast('🗑️ Catatan emosi dihapus');
 }
 
 /* ============================================================
@@ -857,7 +1077,7 @@ function claimDailyStreak() {
   state.streak = (state.lastCheckin === yStr) ? state.streak + 1 : 1;
   state.lastCheckin = t;
   state.checkins.unshift({ date: t, streak: state.streak });
-  saveState(); updateRewardPage(); updateDashboard();
+  saveAndSync(); updateRewardPage(); updateDashboard();
 
   const MILESTONES = {
     1:  ['🌱','🎊 ✨ 🎊','Perjalanan Dimulai!',   'Selamat melakukan check-in pertamamu!'],
@@ -959,7 +1179,7 @@ function saveLearning() {
   clearFields('l-subject','l-what','l-insight','l-duration');
   document.querySelectorAll('#cat-chips .cat-chip').forEach(b => { b.classList.remove('sel'); b.setAttribute('aria-pressed','false'); });
   selectedCat = ''; state.selectedCat = '';
-  saveState(); renderLearnings(); updateLearningStats(); updateRewardPage();
+  saveAndSync(); renderLearnings(); updateLearningStats(); updateRewardPage();
   showToast('📚 Sesi belajar tersimpan!');
 }
 
@@ -974,7 +1194,8 @@ function renderLearnings() {
         <div style="display:flex;align-items:center;gap:8px">
           ${l.cat      ? `<span class="learning-tag">${escapeHTML(l.cat)}</span>` : ''}
           ${l.duration ? `<span class="badge badge-blue">⏱ ${escapeHTML(l.duration)} mnt</span>` : ''}
-          <button class="del-btn" onclick="delLearning(${i})" aria-label="Hapus sesi: ${escapeHTML(l.subject)}"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg></button>
+          <button class="edit-btn" data-action="editLearning(${i})" aria-label="Edit sesi: ${escapeHTML(l.subject)}"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg></button>
+          <button class="del-btn" data-action="delLearning(${i})" aria-label="Hapus sesi: ${escapeHTML(l.subject)}"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg></button>
         </div>
       </div>
       <div class="learning-subject">${escapeHTML(l.subject)}</div>
@@ -990,7 +1211,7 @@ function delLearning(i) {
   if (!state.learnings[i]) return;
   if (!konfirmasiHapus(`sesi belajar "${state.learnings[i].subject}"`)) return;
   state.learnings.splice(i, 1);
-  saveState(); renderLearnings(); updateLearningStats(); showToast('🗑️ Sesi belajar dihapus');
+  saveAndSync(); renderLearnings(); updateLearningStats(); showToast('🗑️ Sesi belajar dihapus');
 }
 
 function updateLearningStats() {
@@ -1056,7 +1277,7 @@ function addMenstruasi() {
   if (end && end < start) { showToast('⚠️ Tanggal selesai tidak boleh sebelum mulai'); return; }
 
   state.menstruasis.unshift({ start, end, flow, symptoms: [..._selectedSymptoms], mood, note });
-  saveState();
+  saveAndSync();
 
   // Reset form
   document.getElementById('mens-end').value  = '';
@@ -1073,7 +1294,7 @@ function addMenstruasi() {
 function delMenstruasi(i) {
   if (!konfirmasiHapus('siklus ini')) return;
   state.menstruasis.splice(i, 1);
-  saveState(); renderMenstruasi();
+  saveAndSync(); renderMenstruasi();
   showToast('🗑️ Siklus dihapus');
 }
 
@@ -1146,7 +1367,7 @@ function renderMenstruasi() {
           <td data-label="Aliran">${FLOW_LABEL[d.flow] || d.flow}</td>
           <td data-label="Gejala" style="font-size:11px;max-width:180px">${escapeHTML(syms)}</td>
           <td data-label="Mood">${d.mood ? MOOD_LABEL[d.mood] || d.mood : '—'}</td>
-          <td data-label=""><button class="del-btn btn-danger" onclick="delMenstruasi(${i})" aria-label="Hapus siklus ini"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg></button></td>
+          <td data-label=""><button class="del-btn btn-danger" data-action="delMenstruasi(${i})" aria-label="Hapus siklus ini"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg></button></td>
         </tr>`;
       }).join('');
     }
@@ -1300,7 +1521,7 @@ function clearSectionData(section) {
   } else {
     state[section] = [];
   }
-  saveState(); renderAll(); updateSettingsPage();
+  saveAndSync(); renderAll(); updateSettingsPage();
   showToast(`🗑️ Data berhasil dihapus`);
 }
 
@@ -1455,7 +1676,7 @@ function getSearchSources() {
       getItems: () => state.journals.map((j) => ({
         title: j.did ? j.did.slice(0, 80) : `Jurnal ${j.date}`,
         meta: `${j.date} · ${j.mood || 'Tanpa mood'}`,
-        action: () => showPage('journal', navBtn(8))
+        action: () => showPage('journal', navBtn(6))
       }))
     },
     {
@@ -1556,7 +1777,7 @@ function runSearch(raw) {
     items.forEach((item, idx) => {
       // Encode action index untuk onclick
       html += `<button class="search-result-item"
-                 onclick="triggerSearchResult('${src.page}', ${idx})"
+                 data-action="triggerSearchResult('${src.page}', ${idx})"
                  role="listitem">
         <div class="search-result-icon" aria-hidden="true">${src.icon}</div>
         <div class="search-result-body">
@@ -1589,7 +1810,7 @@ function triggerSearchResult(page, itemIdx) {
   closeSearch();
   const pageNavMap = {
     target: 1, habit: 2, todo: 3, reward: 4,
-    learning: 5, journal: 8, reflection: 7,
+    learning: 5, journal: 6, reflection: 7,
     sosial: 9, emosi: 10
   };
   const n = pageNavMap[page];
@@ -1597,8 +1818,306 @@ function triggerSearchResult(page, itemIdx) {
 }
 
 /* ============================================================
-   19. KEYBOARD SHORTCUTS
+   21. EDIT MODAL
    ============================================================ */
+
+let _editCtx = null; // { type, index }
+
+function openEditModal(title, bodyHTML, ctx) {
+  _editCtx = ctx;
+  document.getElementById('edit-modal-title').textContent = title;
+  document.getElementById('edit-modal-body').innerHTML = bodyHTML;
+  const bg = document.getElementById('edit-modal-bg');
+  bg.style.display = 'flex';
+  setTimeout(() => bg.querySelector('input,textarea,select')?.focus(), 80);
+}
+
+function closeEditModal() {
+  document.getElementById('edit-modal-bg').style.display = 'none';
+  _editCtx = null;
+}
+
+function saveEditModal() {
+  if (!_editCtx) return;
+  const { type, index, todoId } = _editCtx;
+  if (type === 'target')     _saveEditTarget(index);
+  else if (type === 'todo')  _saveEditTodo(todoId !== undefined ? todoId : index);
+  else if (type === 'journal') _saveEditJournal(index);
+  else if (type === 'reflection') _saveEditReflection(index);
+  else if (type === 'sosial') _saveEditSosial(index);
+  else if (type === 'emosi') _saveEditEmosi(index);
+  else if (type === 'learning') _saveEditLearning(index);
+}
+
+// ── TARGET ──
+function editTarget(i) {
+  const t = state.targets[i];
+  if (!t) return;
+  openEditModal('✏️ Edit Target', `
+    <label style="display:block;font-size:12px;color:var(--text3);margin-bottom:4px">Nama Target</label>
+    <input id="em-t-name" type="text" value="${escapeHTML(t.name)}" style="width:100%;margin-bottom:12px">
+    <label style="display:block;font-size:12px;color:var(--text3);margin-bottom:4px">Deadline</label>
+    <input id="em-t-deadline" type="date" value="${t.deadline||''}" style="width:100%;margin-bottom:12px">
+    <label style="display:block;font-size:12px;color:var(--text3);margin-bottom:4px">Status</label>
+    <select id="em-t-status" style="width:100%">
+      <option value="on_progress" ${t.status==='on_progress'?'selected':''}>On Progress</option>
+      <option value="done" ${t.status==='done'?'selected':''}>Selesai</option>
+    </select>`, { type: 'target', index: i });
+}
+function _saveEditTarget(i) {
+  const name = document.getElementById('em-t-name')?.value.trim();
+  if (!name) { showToast('⚠️ Nama target tidak boleh kosong'); return; }
+  state.targets[i].name     = name;
+  state.targets[i].deadline = document.getElementById('em-t-deadline')?.value || '';
+  state.targets[i].status   = document.getElementById('em-t-status')?.value || 'on_progress';
+  saveAndSync(); renderTargets(); updateDashboard();
+  showToast('✓ Target berhasil diupdate'); closeEditModal();
+}
+
+// ── TODO ──
+function editTodo(id) {
+  // eslint-disable-next-line eqeqeq
+  const t = state.todos.find(x => x.id == id);
+  if (!t) return;
+  openEditModal('✏️ Edit Tugas', `
+    <label style="display:block;font-size:12px;color:var(--text3);margin-bottom:4px">Teks Tugas</label>
+    <input id="em-td-text" type="text" value="${escapeHTML(t.text)}" style="width:100%;margin-bottom:12px">
+    <label style="display:block;font-size:12px;color:var(--text3);margin-bottom:4px">Tanggal</label>
+    <input id="em-td-date" type="date" value="${t.dueDate||''}" style="width:100%;margin-bottom:12px">
+    <label style="display:block;font-size:12px;color:var(--text3);margin-bottom:4px">Jam</label>
+    <input id="em-td-time" type="time" value="${t.dueTime||''}" style="width:100%">`, { type: 'todo', todoId: id });
+}
+function _saveEditTodo(todoId) {
+  const text = document.getElementById('em-td-text')?.value.trim();
+  if (!text) { showToast('⚠️ Teks tugas tidak boleh kosong'); return; }
+  // eslint-disable-next-line eqeqeq
+  const todo = state.todos.find(x => x.id == todoId);
+  if (!todo) { showToast('⚠️ Tugas tidak ditemukan'); return; }
+  todo.text    = text;
+  todo.dueDate = document.getElementById('em-td-date')?.value || '';
+  todo.dueTime = document.getElementById('em-td-time')?.value || '';
+  saveAndSync(); renderTodo(); updateDashboard();
+  showToast('✓ Tugas berhasil diupdate'); closeEditModal();
+}
+
+// ── JOURNAL ──
+function editJournal(i) {
+  const j = state.journals[i];
+  if (!j) return;
+  const moodOpts = ['','Bahagia','Semangat','Biasa','Lelah','Cemas','Sedih','Marah','Stres']
+    .map(m => `<option value="${m}" ${j.mood===m?'selected':''}>${m||'— Pilih mood —'}</option>`).join('');
+  openEditModal('✏️ Edit Jurnal', `
+    <label style="display:block;font-size:12px;color:var(--text3);margin-bottom:4px">Tanggal</label>
+    <input id="em-j-date" type="date" value="${j.date}" style="width:100%;margin-bottom:12px">
+    <label style="display:block;font-size:12px;color:var(--text3);margin-bottom:4px">Aktivitas</label>
+    <textarea id="em-j-did" style="width:100%;margin-bottom:12px;min-height:80px">${escapeHTML(j.did)}</textarea>
+    <label style="display:block;font-size:12px;color:var(--text3);margin-bottom:4px">Hal Positif</label>
+    <textarea id="em-j-good" style="width:100%;margin-bottom:12px;min-height:60px">${escapeHTML(j.good||'')}</textarea>
+    <label style="display:block;font-size:12px;color:var(--text3);margin-bottom:4px">Yang Perlu Diperbaiki</label>
+    <textarea id="em-j-improve" style="width:100%;margin-bottom:12px;min-height:60px">${escapeHTML(j.improve||'')}</textarea>
+    <label style="display:block;font-size:12px;color:var(--text3);margin-bottom:4px">Mood</label>
+    <select id="em-j-mood" style="width:100%">${moodOpts}</select>`, { type: 'journal', index: i });
+}
+function _saveEditJournal(i) {
+  const did = document.getElementById('em-j-did')?.value.trim();
+  if (!did) { showToast('⚠️ Aktivitas tidak boleh kosong'); return; }
+  state.journals[i].date    = document.getElementById('em-j-date')?.value || today();
+  state.journals[i].did     = did;
+  state.journals[i].good    = document.getElementById('em-j-good')?.value.trim() || '';
+  state.journals[i].improve = document.getElementById('em-j-improve')?.value.trim() || '';
+  state.journals[i].mood    = document.getElementById('em-j-mood')?.value || '';
+  saveAndSync(); renderJournals(); updateDashboard();
+  showToast('✓ Jurnal berhasil diupdate'); closeEditModal();
+}
+
+// ── REFLEKSI ──
+function editReflection(i) {
+  const r = state.reflections[i];
+  if (!r) return;
+  openEditModal('✏️ Edit Refleksi', `
+    <label style="display:block;font-size:12px;color:var(--text3);margin-bottom:4px">Tanggal</label>
+    <input id="em-r-date" type="date" value="${r.date}" style="width:100%;margin-bottom:12px">
+    <label style="display:block;font-size:12px;color:var(--text3);margin-bottom:4px">Yang Sudah Berkembang</label>
+    <textarea id="em-r-grow" style="width:100%;margin-bottom:12px;min-height:70px">${escapeHTML(r.grow)}</textarea>
+    <label style="display:block;font-size:12px;color:var(--text3);margin-bottom:4px">Yang Masih Kurang</label>
+    <textarea id="em-r-lack" style="width:100%;margin-bottom:12px;min-height:60px">${escapeHTML(r.lack||'')}</textarea>
+    <label style="display:block;font-size:12px;color:var(--text3);margin-bottom:4px">Rencana Minggu Depan</label>
+    <textarea id="em-r-plan" style="width:100%;min-height:60px">${escapeHTML(r.plan||'')}</textarea>`, { type: 'reflection', index: i });
+}
+function _saveEditReflection(i) {
+  const grow = document.getElementById('em-r-grow')?.value.trim();
+  if (!grow) { showToast('⚠️ Kolom berkembang tidak boleh kosong'); return; }
+  state.reflections[i].date = document.getElementById('em-r-date')?.value || today();
+  state.reflections[i].grow = grow;
+  state.reflections[i].lack = document.getElementById('em-r-lack')?.value.trim() || '';
+  state.reflections[i].plan = document.getElementById('em-r-plan')?.value.trim() || '';
+  saveAndSync(); renderReflections();
+  showToast('✓ Refleksi berhasil diupdate'); closeEditModal();
+}
+
+// ── SOSIAL ──
+function editSosial(i) {
+  const s = state.sosials[i];
+  if (!s) return;
+  openEditModal('✏️ Edit Catatan Sosial', `
+    <label style="display:block;font-size:12px;color:var(--text3);margin-bottom:4px">Tanggal</label>
+    <input id="em-s-date" type="date" value="${s.date}" style="width:100%;margin-bottom:12px">
+    <label style="display:block;font-size:12px;color:var(--text3);margin-bottom:4px">Ngobrol dengan Siapa</label>
+    <input id="em-s-who" type="text" value="${escapeHTML(s.who)}" style="width:100%;margin-bottom:12px">
+    <label style="display:block;font-size:12px;color:var(--text3);margin-bottom:4px">Topik</label>
+    <textarea id="em-s-topic" style="width:100%;margin-bottom:12px;min-height:60px">${escapeHTML(s.topic||'')}</textarea>
+    <label style="display:block;font-size:12px;color:var(--text3);margin-bottom:4px">Perbaikan Komunikasi</label>
+    <textarea id="em-s-improve" style="width:100%;margin-bottom:12px;min-height:60px">${escapeHTML(s.improve||'')}</textarea>
+    <label style="display:block;font-size:12px;color:var(--text3);margin-bottom:4px">Catatan</label>
+    <textarea id="em-s-note" style="width:100%;min-height:60px">${escapeHTML(s.note||'')}</textarea>`, { type: 'sosial', index: i });
+}
+function _saveEditSosial(i) {
+  const who = document.getElementById('em-s-who')?.value.trim();
+  if (!who) { showToast('⚠️ Nama orang tidak boleh kosong'); return; }
+  state.sosials[i].date    = document.getElementById('em-s-date')?.value || today();
+  state.sosials[i].who     = who;
+  state.sosials[i].topic   = document.getElementById('em-s-topic')?.value.trim() || '';
+  state.sosials[i].improve = document.getElementById('em-s-improve')?.value.trim() || '';
+  state.sosials[i].note    = document.getElementById('em-s-note')?.value.trim() || '';
+  saveAndSync(); renderSosials();
+  showToast('✓ Catatan sosial diupdate'); closeEditModal();
+}
+
+// ── EMOSI ──
+function editEmosi(i) {
+  const e = state.emosis[i];
+  if (!e) return;
+  const moods = ['Bahagia','Semangat','Biasa','Lelah','Cemas','Sedih','Marah','Stres']
+    .map(m => `<option value="${m}" ${e.mood===m?'selected':''}>${m}</option>`).join('');
+  openEditModal('✏️ Edit Catatan Emosi', `
+    <label style="display:block;font-size:12px;color:var(--text3);margin-bottom:4px">Tanggal</label>
+    <input id="em-e-date" type="date" value="${e.date}" style="width:100%;margin-bottom:12px">
+    <label style="display:block;font-size:12px;color:var(--text3);margin-bottom:4px">Mood</label>
+    <select id="em-e-mood" style="width:100%;margin-bottom:12px">${moods}</select>
+    <label style="display:block;font-size:12px;color:var(--text3);margin-bottom:4px">Penyebab</label>
+    <textarea id="em-e-cause" style="width:100%;margin-bottom:12px;min-height:60px">${escapeHTML(e.cause||'')}</textarea>
+    <label style="display:block;font-size:12px;color:var(--text3);margin-bottom:4px">Solusi</label>
+    <textarea id="em-e-solution" style="width:100%;min-height:60px">${escapeHTML(e.solution||'')}</textarea>`, { type: 'emosi', index: i });
+}
+function _saveEditEmosi(i) {
+  const mood = document.getElementById('em-e-mood')?.value;
+  if (!mood) { showToast('⚠️ Pilih mood'); return; }
+  state.emosis[i].date     = document.getElementById('em-e-date')?.value || today();
+  state.emosis[i].mood     = mood;
+  state.emosis[i].cause    = document.getElementById('em-e-cause')?.value.trim() || '';
+  state.emosis[i].solution = document.getElementById('em-e-solution')?.value.trim() || '';
+  saveAndSync(); renderEmosi();
+  showToast('✓ Catatan emosi diupdate'); closeEditModal();
+}
+
+// ── LEARNING ──
+function editLearning(i) {
+  const l = state.learnings[i];
+  if (!l) return;
+  const cats = ['','Teknologi','Bahasa','Finansial','Kesehatan','Seni','Lainnya']
+    .map(c => `<option value="${c}" ${l.cat===c?'selected':''}>${c||'— Pilih kategori —'}</option>`).join('');
+  openEditModal('✏️ Edit Sesi Belajar', `
+    <label style="display:block;font-size:12px;color:var(--text3);margin-bottom:4px">Tanggal</label>
+    <input id="em-l-date" type="date" value="${l.date}" style="width:100%;margin-bottom:12px">
+    <label style="display:block;font-size:12px;color:var(--text3);margin-bottom:4px">Topik</label>
+    <input id="em-l-subject" type="text" value="${escapeHTML(l.subject)}" style="width:100%;margin-bottom:12px">
+    <label style="display:block;font-size:12px;color:var(--text3);margin-bottom:4px">Kategori</label>
+    <select id="em-l-cat" style="width:100%;margin-bottom:12px">${cats}</select>
+    <label style="display:block;font-size:12px;color:var(--text3);margin-bottom:4px">Materi</label>
+    <textarea id="em-l-what" style="width:100%;margin-bottom:12px;min-height:70px">${escapeHTML(l.what)}</textarea>
+    <label style="display:block;font-size:12px;color:var(--text3);margin-bottom:4px">Insight</label>
+    <textarea id="em-l-insight" style="width:100%;margin-bottom:12px;min-height:60px">${escapeHTML(l.insight||'')}</textarea>
+    <label style="display:block;font-size:12px;color:var(--text3);margin-bottom:4px">Durasi (menit)</label>
+    <input id="em-l-duration" type="number" min="1" value="${l.duration||''}" style="width:100%">`, { type: 'learning', index: i });
+}
+function _saveEditLearning(i) {
+  const subject = document.getElementById('em-l-subject')?.value.trim();
+  const what    = document.getElementById('em-l-what')?.value.trim();
+  if (!subject) { showToast('⚠️ Topik tidak boleh kosong'); return; }
+  if (!what)    { showToast('⚠️ Materi tidak boleh kosong'); return; }
+  state.learnings[i].date     = document.getElementById('em-l-date')?.value || today();
+  state.learnings[i].subject  = subject;
+  state.learnings[i].what     = what;
+  state.learnings[i].insight  = document.getElementById('em-l-insight')?.value.trim() || '';
+  state.learnings[i].duration = document.getElementById('em-l-duration')?.value || '';
+  state.learnings[i].cat      = document.getElementById('em-l-cat')?.value || '';
+  saveAndSync(); renderLearnings(); updateLearningStats();
+  showToast('✓ Sesi belajar diupdate'); closeEditModal();
+}
+
+/* ============================================================
+   22. EXPORT / IMPORT DATA
+   ============================================================ */
+
+function exportData() {
+  const backup = {
+    version: '1.3.1',
+    exportedAt: new Date().toISOString(),
+    data: {
+      targets:     state.targets,
+      habits:      state.habits,
+      habitData:   state.habitData,
+      habitRows:   habitRows,
+      todos:       state.todos,
+      journals:    state.journals,
+      reflections: state.reflections,
+      sosials:     state.sosials,
+      emosis:      state.emosis,
+      menstruasis: state.menstruasis,
+      learnings:   state.learnings,
+      streak:      state.streak,
+      lastCheckin: state.lastCheckin,
+      checkins:    state.checkins,
+    }
+  };
+  const blob = new Blob([JSON.stringify(backup, null, 2)], { type: 'application/json' });
+  const url  = URL.createObjectURL(blob);
+  const a    = document.createElement('a');
+  const date = new Date().toISOString().slice(0, 10);
+  a.href     = url;
+  a.download = `trackify-backup-${date}.json`;
+  a.click();
+  URL.revokeObjectURL(url);
+  showToast('✓ Data berhasil diekspor!');
+}
+
+function importData(input) {
+  const file = input.files[0];
+  if (!file) return;
+  if (!window.confirm('⚠️ Import akan menimpa data saat ini.\n\nLanjutkan?')) {
+    input.value = ''; return;
+  }
+  const reader = new FileReader();
+  reader.onload = (e) => {
+    try {
+      const backup = JSON.parse(e.target.result);
+      const d = backup.data || backup; // support format lama
+      if (d.targets)     state.targets     = d.targets;
+      if (d.habits)      state.habits      = d.habits;
+      if (d.habitData)   state.habitData   = d.habitData;
+      if (d.habitRows)   habitRows         = d.habitRows;
+      if (d.todos)       state.todos       = d.todos;
+      if (d.journals)    state.journals    = d.journals;
+      if (d.reflections) state.reflections = d.reflections;
+      if (d.sosials)     state.sosials     = d.sosials;
+      if (d.emosis)      state.emosis      = d.emosis;
+      if (d.menstruasis) state.menstruasis = d.menstruasis;
+      if (d.learnings)   state.learnings   = d.learnings;
+      if (d.streak !== undefined) state.streak = d.streak;
+      if (d.lastCheckin) state.lastCheckin = d.lastCheckin;
+      if (d.checkins)    state.checkins    = d.checkins;
+      syncToFirebase();
+      renderAll(); updateDashboard();
+      showToast('✓ Data berhasil diimport!');
+    } catch(err) {
+      showToast('❌ File tidak valid: ' + err.message);
+    }
+    input.value = '';
+  };
+  reader.readAsText(file);
+}
+
+
 
 document.addEventListener('keydown', e => {
   if (e.key === 'Escape') { closeSidebar(); closeRewardModal(); closeContextMenu(); closeSearch(); }
@@ -1609,4 +2128,254 @@ document.addEventListener('keydown', e => {
    19. ENTRY POINT
    ============================================================ */
 
-document.addEventListener('DOMContentLoaded', initApp);
+document.addEventListener('DOMContentLoaded', () => {
+  // Hapus data localStorage lama (migrasi ke Firebase-only)
+  try { localStorage.removeItem('Trackify_v1'); } catch(e) {}
+  initApp();
+});
+
+/* ============================================================
+   EXPOSE FUNCTIONS TO WINDOW (required for ES Module scope)
+   data-action="..." di HTML tidak bisa akses fungsi module secara
+   langsung — semua yang dipanggil dari HTML harus didaftarkan
+   ke window secara eksplisit.
+   ============================================================ */
+
+// Navigasi
+Object.assign(window, {
+  showPage, toggleTheme, toggleSidebar, closeSidebar, navBtn,
+  quickJournal, quickHabit, quickTodo, quickLearning, quickEmosi, quickTarget,
+
+  // Target
+  addTarget, delTarget, toggleTargetStatus,
+
+  // Habit
+  addHabit, addHabitRow, delHabit, delHabitRow,
+  toggleHabit, toggleHabitDelBtn,
+
+  // Todo
+  addTodo, toggleTodo, delTodo, toggleTodoById, delTodoById,
+
+  // Journal
+  saveJournal, delJournal, selectMood,
+
+  // Refleksi
+  saveReflection, delReflection,
+
+  // Sosial
+  saveSosial, delSosial,
+
+  // Emosi
+  addEmosi, delEmosi,
+
+  // Menstruasi
+  addMenstruasi, delMenstruasi, toggleSymptom,
+
+  // Learning
+  saveLearning, delLearning, selectCat,
+
+  // Reward / Streak
+  claimDailyStreak, closeRewardModal,
+
+  // Settings & Reset
+  resetAllData, clearSectionData, updateSettingsPage,
+  exportData, importData,
+
+  // Edit modal
+  closeEditModal, saveEditModal,
+  editTarget, editTodo, editJournal, editReflection,
+  editSosial, editEmosi, editLearning,
+
+  // Search
+  openSearch, closeSearch, runSearch, triggerSearchResult,
+
+  // Auth
+  handleLogin: async () => {
+    try {
+      const user = await loginWithGoogle();
+      showToast("Login berhasil! Selamat datang, " + user.displayName);
+      loadAllData();
+    } catch (e) {
+      showToast("Login gagal: " + e.message);
+    }
+  },
+  handleLogout: async () => {
+    await logoutUser();
+    showToast("Berhasil logout");
+    clearAllDisplays();
+  },
+});
+
+/* ============================================================
+   EVENT DELEGATION — menggantikan semua onclick di HTML.
+   Extension browser tidak bisa inject ke addEventListener,
+   hanya ke atribut onclick. Dengan delegation ini semua klik
+   ditangani dari JS murni, aman dari interference extension.
+   ============================================================ */
+
+function _evalAction(expr, target) {
+  // Jalankan ekspresi action dengan context window
+  // Mapping ekspresi umum ke fungsi langsung (lebih aman dari eval)
+  const fn = _ACTION_MAP[expr];
+  if (fn) { fn(target); return; }
+
+  // Fallback untuk ekspresi sederhana "fnName(args)"
+  try {
+    const f = new Function(...Object.keys(window), `"use strict"; return (${expr})`);
+    f(...Object.values(window));
+  } catch(e) {
+    console.warn('[Trackify] action error:', expr, e.message);
+  }
+}
+
+// Map action string -> handler function (hindari eval untuk kasus umum)
+const _ACTION_MAP = {
+  'openSearch()':       () => openSearch(),
+  'closeSearch()':      () => closeSearch(),
+  'closeRewardModal()': () => closeRewardModal(),
+  'closeEditModal()':   () => closeEditModal(),
+  'saveEditModal()':    () => saveEditModal(),
+  'toggleSidebar()':    () => toggleSidebar(),
+  'closeSidebar()':     () => closeSidebar(),
+  'toggleTheme()':      () => toggleTheme(),
+  'quickJournal()':     () => quickJournal(),
+  'quickHabit()':       () => quickHabit(),
+  'quickTodo()':        () => quickTodo(),
+  'quickLearning()':    () => quickLearning(),
+  'quickEmosi()':       () => quickEmosi(),
+  'quickTarget()':      () => quickTarget(),
+  'addTarget()':        () => addTarget(),
+  'addHabit()':         () => addHabit(),
+  'addHabitRow()':      () => addHabitRow(),
+  'addTodo()':          () => addTodo(),
+  'saveJournal()':      () => saveJournal(),
+  'saveReflection()':   () => saveReflection(),
+  'saveSosial()':       () => saveSosial(),
+  'addEmosi()':         () => addEmosi(),
+  'addMenstruasi()':    () => addMenstruasi(),
+  'saveLearning()':     () => saveLearning(),
+  'claimDailyStreak()': () => claimDailyStreak(),
+  'exportData()':       () => exportData(),
+  'resetAllData()':     () => resetAllData(),
+  'event.stopPropagation()': (_, e) => e && e.stopPropagation(),
+
+  // showPage calls
+  "showPage('dashboard',this)":          (el) => showPage('dashboard', el),
+  "showPage('target',this)":             (el) => showPage('target', el),
+  "showPage('habit',this)":              (el) => showPage('habit', el),
+  "showPage('todo',this)":               (el) => showPage('todo', el),
+  "showPage('reward',this)":             (el) => showPage('reward', el),
+  "showPage('learning',this)":           (el) => showPage('learning', el),
+  "showPage('journal',this)":            (el) => showPage('journal', el),
+  "showPage('reflection',this)":         (el) => showPage('reflection', el),
+  "showPage('menstruasi',this)":         (el) => showPage('menstruasi', el),
+  "showPage('sosial',this)":             (el) => showPage('sosial', el),
+  "showPage('emosi',this)":              (el) => showPage('emosi', el),
+  "showPage('settings',this)":           (el) => showPage('settings', el),
+  "showPage('reward', navBtn(4))":       () => showPage('reward', navBtn(4)),
+  "showPage('habit',navBtn(2))":         () => showPage('habit', navBtn(2)),
+  "showPage('target',navBtn(1))":        () => showPage('target', navBtn(1)),
+  "showPage('todo',navBtn(3))":          () => showPage('todo', navBtn(3)),
+  "showPage('reflection', navBtn(7))":   () => showPage('reflection', navBtn(7)),
+
+  // metric cards (same as nav)
+  "showPage('target',navBtn(1))":        () => showPage('target', navBtn(1)),
+  "showPage('habit',navBtn(2))":         () => showPage('habit', navBtn(2)),
+  "showPage('todo',navBtn(3))":          () => showPage('todo', navBtn(3)),
+
+  // clearSectionData
+  "clearSectionData('targets')":     () => clearSectionData('targets'),
+  "clearSectionData('habits')":      () => clearSectionData('habits'),
+  "clearSectionData('todos')":       () => clearSectionData('todos'),
+  "clearSectionData('journals')":    () => clearSectionData('journals'),
+  "clearSectionData('reflections')": () => clearSectionData('reflections'),
+  "clearSectionData('sosials')":     () => clearSectionData('sosials'),
+  "clearSectionData('emosis')":      () => clearSectionData('emosis'),
+  "clearSectionData('menstruasis')": () => clearSectionData('menstruasis'),
+  "clearSectionData('learnings')":   () => clearSectionData('learnings'),
+  "clearSectionData('streak')":      () => clearSectionData('streak'),
+
+  // selectCat
+  "selectCat(this,'Teknologi')": (el) => selectCat(el, 'Teknologi'),
+  "selectCat(this,'Bahasa')":    (el) => selectCat(el, 'Bahasa'),
+  "selectCat(this,'Finansial')": (el) => selectCat(el, 'Finansial'),
+  "selectCat(this,'Kesehatan')": (el) => selectCat(el, 'Kesehatan'),
+  "selectCat(this,'Seni')":      (el) => selectCat(el, 'Seni'),
+  "selectCat(this,'Lainnya')":   (el) => selectCat(el, 'Lainnya'),
+
+  // toggleSymptom
+  'toggleSymptom(this)': (el) => toggleSymptom(el),
+
+  // auth
+  "if(window.handleLogin){handleLogin()}else{document.addEventListener('trackify-ready',function(){handleLogin()},{once:true})}":
+    () => { if (window.handleLogin) handleLogin(); else document.addEventListener('trackify-ready', () => handleLogin(), {once:true}); },
+  "if(window.handleLogout)handleLogout()":
+    () => { if (window.handleLogout) handleLogout(); },
+};
+
+document.addEventListener('click', function(e) {
+  const el = e.target.closest('[data-action]');
+  if (!el) return;
+  const action = el.getAttribute('data-action');
+  if (!action) return;
+  e.stopPropagation();
+  // Jalankan action — kirim original event untuk stopPropagation cases
+  const fn = _ACTION_MAP[action];
+  if (fn) {
+    fn(el, e);
+  } else {
+    // Dynamic actions dari render (toggleTodoById, delTodo, editTodo, dll)
+    // Format: "fnName(arg)" — parse dan panggil dari window
+    const m = action.match(/^(\w+)\((.*)?\)$/);
+    if (m) {
+      const fnName = m[1];
+      const argStr = m[2] ? m[2].trim() : '';
+      const fn2 = window[fnName];
+      if (typeof fn2 === 'function') {
+        try {
+          // Parse args: angka, string, atau 'this'
+          const args = argStr === '' ? [] : argStr.split(',').map(a => {
+            a = a.trim();
+            if (a === 'this') return el;
+            if (/^-?\d+$/.test(a)) return parseInt(a, 10);
+            if (/^['"]/.test(a)) return a.slice(1, -1);
+            return a;
+          });
+          fn2(...args);
+        } catch(err) {
+          console.warn('[Trackify] dynamic action error:', action, err.message);
+        }
+      }
+    }
+  }
+}, true); // capture phase — sebelum extension bisa interfere
+
+// oninput untuk search
+document.addEventListener('input', function(e) {
+  if (e.target.getAttribute('data-oninput') === 'runSearch') {
+    runSearch(e.target.value);
+  }
+});
+
+// onkeydown Enter untuk input fields
+document.addEventListener('keydown', function(e) {
+  if (e.key !== 'Enter') return;
+  const action = e.target.getAttribute('data-onenter');
+  if (action && window[action]) window[action]();
+});
+
+// onchange untuk import file
+document.addEventListener('change', function(e) {
+  if (e.target.id === 'import-file-input') importData(e.target);
+});
+
+// keyboard nav untuk metric cards
+document.addEventListener('keydown', function(e) {
+  if (e.key !== 'Enter' && e.key !== ' ') return;
+  const page = e.target.getAttribute('data-onenter-page');
+  const nav  = e.target.getAttribute('data-onenter-nav');
+  if (page) { e.preventDefault(); showPage(page, nav ? navBtn(parseInt(nav)) : null); }
+});
+
+// Beritahu HTML bahwa module sudah siap
+document.dispatchEvent(new CustomEvent('trackify-ready'));

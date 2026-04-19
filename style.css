@@ -205,8 +205,9 @@ body {
   border-bottom: 1px solid var(--border);
   z-index: 150;
   align-items: center;
-  padding: 0 16px;
-  gap: 12px;
+  padding: 0 14px;
+  gap: 10px;
+  overflow: visible;
   transition: background .3s, border-color .3s;
 }
 .hamburger {
@@ -225,7 +226,7 @@ body {
 .hamburger.open .ham-line:nth-child(1) { transform: translateY(7px) rotate(45deg); }
 .hamburger.open .ham-line:nth-child(2) { opacity: 0; }
 .hamburger.open .ham-line:nth-child(3) { transform: translateY(-7px) rotate(-45deg); }
-.topbar-logo { display: flex; align-items: center; gap: 8px; flex: 1; }
+.topbar-logo { display: flex; align-items: center; gap: 8px; flex: 1; min-width: 0; overflow: hidden; }
 .topbar-logo .logo-icon { width: 28px; height: 28px; font-size: 13px; }
 .topbar-logo .logo-text { font-size: 15px; }
 .topbar-theme {
@@ -1643,4 +1644,187 @@ th:hover .del-btn {
   height: 10px;
   border-radius: 50%;
   margin-right: 4px;
+}
+
+/* ── MOBILE TOUCH FIXES ── */
+@media (max-width: 900px) {
+  /* Todo check: perbesar touch target */
+  .todo-check {
+    width: 28px !important;
+    height: 28px !important;
+    min-width: 28px !important;
+    border-radius: 8px !important;
+    font-size: 14px !important;
+  }
+
+  /* Quick action buttons: pastikan z-index dan pointer events oke */
+  .quick-action-btn {
+    position: relative;
+    z-index: 1;
+    -webkit-tap-highlight-color: rgba(124,110,247,.15);
+    touch-action: manipulation;
+  }
+
+  /* Auth bar tidak boleh overlap konten utama */
+  #auth-bar {
+    bottom: 80px;
+    pointer-events: auto;
+  }
+}
+
+/* ── TOPBAR AUTH ── */
+.topbar-auth-btn {
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-family: 'Plus Jakarta Sans', sans-serif;
+  touch-action: manipulation;
+}
+.topbar-login-btn {
+  background: #4285f4;
+  color: #fff;
+  font-size: 13px;
+  font-weight: 600;
+  padding: 7px 14px;
+  border-radius: 20px;
+  border: none;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.topbar-login-btn:active { opacity: .85; }
+
+.topbar-avatar-btn {
+  background: none;
+  border: 2px solid #4285f4;
+  border-radius: 50%;
+  padding: 0;
+  cursor: pointer;
+  display: block;
+  line-height: 0;
+}
+.topbar-avatar-btn:active { opacity: .8; }
+
+.auth-popup {
+  position: absolute;
+  top: calc(100% + 10px);
+  right: 0;
+  background: var(--bg2);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  padding: 12px 14px;
+  min-width: 190px;
+  box-shadow: 0 6px 24px rgba(0,0,0,.35);
+  z-index: 9000;
+}
+.auth-popup-user {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  padding-bottom: 10px;
+  margin-bottom: 10px;
+  border-bottom: 1px solid var(--border);
+}
+.auth-popup-name {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 120px;
+}
+.auth-popup-logout {
+  width: 100%;
+  background: transparent;
+  color: #ef4444;
+  border: 1px solid rgba(239,68,68,.3);
+  padding: 7px 10px;
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 600;
+  font-family: 'Plus Jakarta Sans', sans-serif;
+}
+.auth-popup-logout:hover { background: rgba(239,68,68,.08); }
+
+/* Sembunyikan theme-btn-mobile jika masih ada */
+.topbar-theme { display: none !important; }
+
+/* ── DESKTOP AUTH WIDGET ── */
+/* Tampil di desktop, sembunyikan di mobile */
+#auth-widget-desktop {
+  display: flex;
+}
+
+/* Hover effect untuk tombol avatar desktop */
+#auth-avatar-btn-desktop:hover {
+  background: var(--bg3) !important;
+  border-color: var(--accent) !important;
+}
+
+@media (max-width: 900px) {
+  /* Sembunyikan widget desktop di mobile */
+  #auth-widget-desktop {
+    display: none !important;
+  }
+}
+
+/* ── EDIT BUTTON — Hidden Action (muncul saat hover, sama seperti del-btn) ── */
+.edit-btn {
+  opacity: 0;
+  pointer-events: none;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  font-size: 12px;
+  padding: 4px 7px;
+  border-radius: 6px;
+  color: var(--text3);
+  transition: opacity .18s, color .15s, background .15s, transform .15s;
+  flex-shrink: 0;
+  transform: scale(0.85);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  line-height: 1;
+}
+
+/* Tampilkan saat hover parent (desktop) */
+.todo-item:hover .edit-btn,
+.journal-entry:hover .edit-btn,
+.learning-entry:hover .edit-btn,
+tr:hover .edit-btn,
+th:hover .edit-btn {
+  opacity: 1;
+  pointer-events: auto;
+  transform: scale(1);
+}
+
+.edit-btn:hover {
+  color: var(--accent2);
+  background: var(--accent-glow);
+}
+
+/* ── EDIT MODAL ── */
+#edit-modal-bg input,
+#edit-modal-bg textarea,
+#edit-modal-bg select {
+  background: var(--bg3);
+  border: 1px solid var(--border2);
+  border-radius: 8px;
+  color: var(--text);
+  font-family: 'Plus Jakarta Sans', sans-serif;
+  font-size: 13px;
+  padding: 9px 12px;
+  outline: none;
+  transition: border-color .2s;
+  box-sizing: border-box;
+}
+#edit-modal-bg input:focus,
+#edit-modal-bg textarea:focus,
+#edit-modal-bg select:focus {
+  border-color: var(--accent);
+}
+#edit-modal-bg textarea {
+  resize: vertical;
 }

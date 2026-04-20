@@ -407,11 +407,60 @@ const VALID_PAGES = new Set([
   'journal','reflection','sosial','emosi','menstruasi','settings'
 ]);
 
+// ── History API: back button mobile tidak keluar dari app ──
+let _historyReady = false;
+function _initHistory() {
+  if (_historyReady) return;
+  _historyReady = true;
+  // Ganti state awal agar ada entry sebelum halaman pertama
+  history.replaceState({ page: 'dashboard' }, '', location.href);
+  window.addEventListener('popstate', (e) => {
+    const id = e.state?.page || 'dashboard';
+    // Panggil showPage tanpa push history (pakai flag internal)
+    _showPageInternal(id);
+    // Selalu push state baru agar back berikutnya tetap di dalam app
+    history.pushState({ page: id }, '', location.href);
+  });
+}
+
+function _showPageInternal(id) {
+  if (!VALID_PAGES.has(id)) return;
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.nav-btn').forEach(b => {
+    b.classList.remove('active');
+    b.setAttribute('aria-current', 'false');
+  });
+  const pageEl = document.getElementById('page-' + id);
+  if (!pageEl) return;
+  pageEl.classList.add('active');
+
+  // Sync active nav btn
+  document.querySelectorAll('.nav-btn').forEach(b => {
+    const action = b.getAttribute('data-action') || '';
+    if (action.includes(`'${id}'`)) {
+      b.classList.add('active');
+      b.setAttribute('aria-current', 'page');
+    }
+  });
+
+  if (id === 'dashboard') updateDashboard();
+  if (id === 'reward')    updateRewardPage();
+  if (id === 'learning')  updateLearningStats();
+  if (id === 'menstruasi') renderMenstruasi();
+  if (id === 'settings')  updateSettingsPage();
+
+  closeSidebar();
+  const title = pageEl.querySelector('.page-title');
+  if (title) { title.setAttribute('tabindex', '-1'); title.focus(); }
+}
+
 function showPage(id, btn) {
   if (!VALID_PAGES.has(id)) {
     console.warn('[Trackify] ID halaman tidak valid:', id);
     return;
   }
+  _initHistory();
+
   document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
   document.querySelectorAll('.nav-btn').forEach(b => {
     b.classList.remove('active');
@@ -429,6 +478,9 @@ function showPage(id, btn) {
   if (id === 'learning')  updateLearningStats();
   if (id === 'menstruasi') renderMenstruasi();
   if (id === 'settings')  updateSettingsPage();
+
+  // Push ke history agar back button tidak keluar dari app
+  history.pushState({ page: id }, '', location.href);
 
   closeSidebar();
 

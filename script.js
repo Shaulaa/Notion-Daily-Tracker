@@ -94,7 +94,7 @@ onAuthChange((user) => {
     if (dropOut) dropOut.style.display = "block";
     if (dropIn)  dropIn.style.display = "none";
     const triggerIcon = document.getElementById("auth-trigger-icon");
-    if (triggerIcon) { triggerIcon.innerHTML = '✦'; triggerIcon.style.background = 'var(--accent-glow)'; }
+    if (triggerIcon) { triggerIcon.innerHTML = '<svg width="16" height="16" style="color:var(--accent)"><use href="#logo-trackify"/></svg>'; triggerIcon.style.background = 'var(--accent-glow)'; }
     const triggerLabel = document.getElementById("auth-trigger-label");
     if (triggerLabel) triggerLabel.textContent = 'Akun';
   }
@@ -149,7 +149,7 @@ async function loadAllData() {
     showToast('✓ Data berhasil dimuat dari cloud');
   } catch (e) {
     console.error('[Trackify] loadAllData error:', e);
-    showToast('⚠️ Gagal memuat data: ' + e.message);
+    showToast('⚠ Gagal memuat data: ' + e.message);
   }
 }
 
@@ -172,7 +172,7 @@ const StorageManager = {
       localStorage.setItem(this.KEY, JSON.stringify(data));
     } catch (err) {
       console.warn('[Trackify] Gagal menyimpan ke localStorage:', err);
-      showToast('⚠️ Penyimpanan gagal — ruang penuh atau mode private');
+      showToast('⚠ Penyimpanan gagal — ruang penuh atau mode private');
     }
   },
 
@@ -382,11 +382,13 @@ function renderAll() {
 function applyTheme(theme) {
   state.theme = theme;
   document.documentElement.setAttribute('data-theme', theme);
-  const icon  = theme === 'dark' ? '🌙' : '☀️';
+  const iconSvg = theme === 'dark'
+    ? '<svg width="16" height="16"><use href="#icon-moon"/></svg>'
+    : '<svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24"><circle cx="12" cy="12" r="4"/><line x1="12" y1="2" x2="12" y2="4"/><line x1="12" y1="20" x2="12" y2="22"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="2" y1="12" x2="4" y2="12"/><line x1="20" y1="12" x2="22" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>';
   const label = theme === 'dark' ? 'Mode Terang' : 'Mode Gelap';
   document.querySelectorAll('#theme-btn, #theme-btn-mobile').forEach(btn => {
     if (!btn) return;
-    btn.textContent = icon;
+    btn.innerHTML = iconSvg;
     btn.setAttribute('aria-label', `Ganti ke ${label}`);
   });
 }
@@ -395,7 +397,7 @@ function toggleTheme() {
   const next = state.theme === 'dark' ? 'light' : 'dark';
   applyTheme(next);
   try { localStorage.setItem('Trackify_theme', next); } catch(e) {}
-  showToast(next === 'dark' ? '🌙 Mode Gelap aktif' : '☀️ Mode Terang aktif');
+  showToast(next === 'dark' ? 'Mode Gelap aktif' : 'Mode Terang aktif');
 }
 
 /* ============================================================
@@ -530,10 +532,16 @@ function showToast(msg, ms = 2600) {
 }
 
 // Modal reward
-function showRewardModal(icon, confetti, title, desc) {
+function showRewardModal(iconId, _unused, title, desc) {
   const bg = document.getElementById('reward-modal-bg');
   if (!bg) return;
-  setText('rm-icon', icon); setText('rm-confetti', confetti);
+  const rmIcon = document.getElementById('rm-icon');
+  if (rmIcon) rmIcon.innerHTML = `<svg width="52" height="52" style="color:#fbbf24"><use href="#${iconId}"/></svg>`;
+  const rmConf = document.getElementById('rm-confetti');
+  if (rmConf) rmConf.innerHTML = `
+    <svg width="22" height="22" style="color:#a78bfa"><use href="#ms-icon-7"/></svg>
+    <svg width="28" height="28" style="color:#fbbf24"><use href="#${iconId}"/></svg>
+    <svg width="22" height="22" style="color:#4ade80"><use href="#ms-icon-7"/></svg>`;
   setText('rm-title', title); setText('rm-desc', desc);
   bg.classList.add('show');
   bg.setAttribute('aria-hidden', 'false');
@@ -564,9 +572,25 @@ function setText(id, val) { const el = document.getElementById(id); if (el) el.t
 function setHTML(id, html) { const el = document.getElementById(id); if (el) el.innerHTML = html; }
 function clearFields(...ids) { ids.forEach(id => { const el = document.getElementById(id); if (el) el.value = ''; }); }
 
-function emptyHTML(emoji, msg) {
+function emptyHTML(iconKey, msg) {
+  const EMPTY_ICONS = {
+    '🎯': '<svg width="28" height="28"><use href="#icon-target"/></svg>',
+    '🔥': '<svg width="28" height="28"><use href="#icon-fire"/></svg>',
+    '✅': '<svg width="28" height="28"><use href="#icon-check-circle"/></svg>',
+    '📝': '<svg width="28" height="28"><use href="#icon-journal"/></svg>',
+    '📖': '<svg width="28" height="28"><use href="#icon-learning"/></svg>',
+    '🔮': '<svg width="28" height="28"><use href="#icon-refleksi"/></svg>',
+    '💬': '<svg width="28" height="28"><use href="#icon-komunikasi"/></svg>',
+    '🌊': '<svg width="28" height="28"><use href="#icon-emosi"/></svg>',
+    '📅': '<svg width="28" height="28"><use href="#icon-calendar"/></svg>',
+    '📚': '<svg width="28" height="28"><use href="#icon-learning"/></svg>',
+    '🗒️': '<svg width="28" height="28"><use href="#icon-todo"/></svg>',
+    '🔍': '<svg width="28" height="28"><use href="#icon-search"/></svg>',
+    '😶': '<svg width="28" height="28"><use href="#icon-emosi"/></svg>',
+  };
+  const iconSvg = EMPTY_ICONS[iconKey] || `<svg width="28" height="28"><use href="#icon-info"/></svg>`;
   return `<div class="empty" role="status" aria-label="${msg}">
-    <div class="empty-icon" aria-hidden="true">${emoji}</div>${msg}</div>`;
+    <div class="empty-icon" aria-hidden="true">${iconSvg}</div>${msg}</div>`;
 }
 
 /**
@@ -696,7 +720,7 @@ function renderTargets() {
                 data-action="toggleTargetStatus(${i})"
                 aria-label="Klik untuk ubah status: ${isDone ? 'Selesai' : 'On Progress'}"
                 title="Klik untuk ubah status">
-          ${isDone ? '✓ Selesai' : '⏳ Berjalan'}
+          ${isDone ? '✓ Selesai' : 'Berjalan'}
         </button>
       </td>
       <td data-label="Progress" style="min-width:120px">
@@ -719,7 +743,7 @@ function addTarget() {
   const name     = document.getElementById('t-name')?.value.trim();
   const deadline = document.getElementById('t-deadline')?.value;
   const status   = document.getElementById('t-status')?.value;
-  if (!name) { showToast('⚠️ Nama target tidak boleh kosong'); document.getElementById('t-name')?.focus(); return; }
+  if (!name) { showToast('⚠ Nama target tidak boleh kosong'); document.getElementById('t-name')?.focus(); return; }
   state.targets.push({ name, deadline, status: status || 'on_progress' });
   clearFields('t-name','t-deadline');
   saveAndSync(); renderTargets(); updateDashboard();
@@ -731,14 +755,14 @@ function delTarget(i) {
   if (!konfirmasiHapus(`target "${state.targets[i].name}"`)) return;
   state.targets.splice(i, 1);
   saveAndSync(); renderTargets(); updateDashboard();
-  showToast('🗑️ Target dihapus');
+  showToast('Target dihapus');
 }
 
 function toggleTargetStatus(i) {
   if (!state.targets[i]) return;
   state.targets[i].status = state.targets[i].status === 'done' ? 'on_progress' : 'done';
   saveAndSync(); renderTargets(); updateDashboard();
-  showToast(state.targets[i].status === 'done' ? '✅ Target ditandai selesai' : '⏳ Target kembali on progress');
+  showToast(state.targets[i].status === 'done' ? 'Target ditandai selesai' : 'Target kembali on progress');
 }
 
 /* ============================================================
@@ -772,7 +796,7 @@ function renderHabit() {
   setTimeout(() => {
     document.querySelectorAll('.habit-col-th').forEach((th, hi) => {
       registerLongPress(th, () => [
-        { icon: '🗑️', label: `Hapus "${state.habits[hi]}"`, danger: true,
+        { icon: 'trash', label: `Hapus "${state.habits[hi]}"`, danger: true,
           action: () => delHabit(hi) }
       ]);
     });
@@ -810,15 +834,15 @@ function toggleHabit(row, hi) {
 
 function addHabit() {
   const v = document.getElementById('new-habit')?.value.trim();
-  if (!v) { showToast('⚠️ Nama habit tidak boleh kosong'); document.getElementById('new-habit')?.focus(); return; }
-  if (state.habits.includes(v)) { showToast('⚠️ Habit ini sudah ada'); return; }
+  if (!v) { showToast('⚠ Nama habit tidak boleh kosong'); document.getElementById('new-habit')?.focus(); return; }
+  if (state.habits.includes(v)) { showToast('⚠ Habit ini sudah ada'); return; }
   state.habits.push(v); clearFields('new-habit');
   saveAndSync(); renderHabit(); showToast('✓ Habit ditambahkan');
 }
 
 function addHabitRow() {
   const d = document.getElementById('habit-date')?.value || today();
-  if (habitRows.includes(d)) { showToast('ℹ️ Tanggal tersebut sudah ada'); return; }
+  if (habitRows.includes(d)) { showToast('ℹ Tanggal tersebut sudah ada'); return; }
   habitRows.push(d); habitRows.sort();
   saveAndSync(); renderHabit(); showToast(`✓ Tanggal ${d} ditambahkan`);
 }
@@ -833,7 +857,7 @@ function delHabit(i) {
   if (!state.habits[i]) return;
   clearTimeout(_habitDelTimer);
   if (!konfirmasiHapus(`habit "${state.habits[i]}"`)) return;
-  state.habits.splice(i, 1); saveAndSync(); renderHabit(); showToast('🗑️ Habit dihapus');
+  state.habits.splice(i, 1); saveAndSync(); renderHabit(); showToast('Habit dihapus');
 }
 
 /** Tap nama kolom habit → toggle tampil/sembunyi ikon sampah
@@ -871,7 +895,7 @@ function renderTodo() {
     if (t.dueDate || t.dueTime) {
       const isOverdue = t.dueDate && !t.done && t.dueDate < today();
       dueMeta = `<span class="todo-due ${isOverdue ? 'overdue' : ''}" aria-label="Jatuh tempo">
-        ${t.dueDate ? `📅 ${t.dueDate}` : ''}${t.dueDate && t.dueTime ? ' ' : ''}${t.dueTime ? `🕐 ${t.dueTime}` : ''}
+        ${t.dueDate ? t.dueDate : ''}${t.dueDate && t.dueTime ? ' · ' : ''}${t.dueTime ? t.dueTime : ''}
       </span>`;
     }
     return `<div class="todo-item" role="listitem">
@@ -907,13 +931,13 @@ function delTodoById(id) {
   if (idx === -1) return;
   if (!konfirmasiHapus(`tugas "${state.todos[idx].text}"`)) return;
   state.todos.splice(idx, 1);
-  saveAndSync(); renderTodo(); updateDashboard(); showToast('🗑️ Tugas dihapus');
+  saveAndSync(); renderTodo(); updateDashboard(); showToast('Tugas dihapus');
 }
 
 function addTodo() {
   const input = document.getElementById('todo-input');
   const v = input?.value.trim();
-  if (!v) { showToast('⚠️ Teks tugas tidak boleh kosong'); input?.focus(); return; }
+  if (!v) { showToast('⚠ Teks tugas tidak boleh kosong'); input?.focus(); return; }
   const dateVal = document.getElementById('todo-date')?.value || '';
   const timeVal = document.getElementById('todo-time')?.value || '';
   state.todos.push({
@@ -950,7 +974,7 @@ function saveJournal() {
   const good    = document.getElementById('j-good')?.value.trim()    || '';
   const improve = document.getElementById('j-improve')?.value.trim() || '';
   const mood    = document.getElementById('j-mood')?.value || '';
-  if (!did) { showToast('⚠️ Isi kolom Aktivitas terlebih dahulu'); document.getElementById('j-did')?.focus(); return; }
+  if (!did) { showToast('⚠ Isi kolom Aktivitas terlebih dahulu'); document.getElementById('j-did')?.focus(); return; }
   state.journals.unshift({ date, did, good, improve, mood });
   clearFields('j-did','j-good','j-improve');
   const moodEl = document.getElementById('j-mood');
@@ -967,7 +991,7 @@ function renderJournals() {
   el.innerHTML = state.journals.map((j, i) => `
     <article class="journal-entry">
       <div class="journal-meta">
-        <span class="journal-date">📅 <time datetime="${j.date}">${j.date}</time></span>
+        <span class="journal-date"><svg width="11" height="11" style="vertical-align:-1px;margin-right:4px;color:var(--text3)"><use href="#icon-calendar"/></svg><time datetime="${j.date}">${j.date}</time></span>
         <div style="display:flex;align-items:center;gap:8px">
           ${j.mood ? `<span class="badge badge-purple">${escapeHTML(j.mood)}</span>` : ''}
           <button class="edit-btn" data-action="editJournal(${i})" aria-label="Edit jurnal ${j.date}"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg></button>
@@ -984,7 +1008,7 @@ function renderJournals() {
 function delJournal(i) {
   if (!konfirmasiHapus('jurnal ini')) return;
   state.journals.splice(i, 1); saveAndSync(); renderJournals(); updateDashboard(); updateRewardPage();
-  showToast('🗑️ Jurnal dihapus');
+  showToast('Jurnal dihapus');
 }
 
 /* ============================================================
@@ -996,7 +1020,7 @@ function saveReflection() {
   const grow = document.getElementById('r-grow')?.value.trim();
   const lack = document.getElementById('r-lack')?.value.trim() || '';
   const plan = document.getElementById('r-plan')?.value.trim() || '';
-  if (!grow) { showToast('⚠️ Isi kolom "Yang sudah berkembang"'); document.getElementById('r-grow')?.focus(); return; }
+  if (!grow) { showToast('⚠ Isi kolom "Yang sudah berkembang"'); document.getElementById('r-grow')?.focus(); return; }
   state.reflections.unshift({ date, grow, lack, plan });
   clearFields('r-grow','r-lack','r-plan');
   saveAndSync(); renderReflections(); showToast('✓ Refleksi tersimpan');
@@ -1009,7 +1033,7 @@ function renderReflections() {
   el.innerHTML = state.reflections.map((r, i) => `
     <article class="journal-entry">
       <div class="journal-meta">
-        <span class="journal-date">📅 <time datetime="${r.date}">${r.date}</time></span>
+        <span class="journal-date"><svg width="11" height="11" style="vertical-align:-1px;margin-right:4px;color:var(--text3)"><use href="#icon-calendar"/></svg><time datetime="${r.date}">${r.date}</time></span>
         <div style="display:flex;align-items:center;gap:8px">
           <button class="edit-btn" data-action="editReflection(${i})" aria-label="Edit refleksi ${r.date}"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg></button>
           <button class="del-btn" data-action="delReflection(${i})" aria-label="Hapus refleksi ${r.date}"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg></button>
@@ -1027,7 +1051,7 @@ function renderReflections() {
 function delReflection(i) {
   if (!konfirmasiHapus('refleksi ini')) return;
   state.reflections.splice(i, 1); saveAndSync(); renderReflections();
-  showToast('🗑️ Refleksi dihapus');
+  showToast('Refleksi dihapus');
 }
 
 /* ============================================================
@@ -1040,7 +1064,7 @@ function saveSosial() {
   const topic   = document.getElementById('s-topic')?.value.trim()   || '';
   const improve = document.getElementById('s-improve')?.value.trim() || '';
   const note    = document.getElementById('s-note')?.value.trim()    || '';
-  if (!who) { showToast('⚠️ Isi nama orang yang diajak bicara'); document.getElementById('s-who')?.focus(); return; }
+  if (!who) { showToast('⚠ Isi nama orang yang diajak bicara'); document.getElementById('s-who')?.focus(); return; }
   state.sosials.unshift({ date, who, topic, improve, note });
   clearFields('s-who','s-topic','s-improve','s-note');
   saveAndSync(); renderSosials(); showToast('✓ Catatan sosial tersimpan');
@@ -1053,14 +1077,14 @@ function renderSosials() {
   el.innerHTML = state.sosials.map((s, i) => `
     <article class="journal-entry">
       <div class="journal-meta">
-        <span class="journal-date">📅 <time datetime="${s.date}">${s.date}</time></span>
+        <span class="journal-date"><svg width="11" height="11" style="vertical-align:-1px;margin-right:4px;color:var(--text3)"><use href="#icon-calendar"/></svg><time datetime="${s.date}">${s.date}</time></span>
         <div style="display:flex;align-items:center;gap:8px">
           <span class="badge badge-blue">${escapeHTML(s.who)}</span>
           <button class="edit-btn" data-action="editSosial(${i})" aria-label="Edit catatan sosial ${s.date}"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg></button>
           <button class="del-btn" data-action="delSosial(${i})" aria-label="Hapus catatan sosial ${s.date}"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg></button>
         </div>
       </div>
-      ${s.topic   ? `<div style="font-size:13px;color:var(--text2);margin-top:4px">📌 ${escapeHTML(s.topic)}</div>` : ''}
+      ${s.topic   ? `<div style="font-size:13px;color:var(--text2);margin-top:4px">${escapeHTML(s.topic)}</div>` : ''}
       ${s.improve ? `<div style="font-size:13px;margin-top:4px"><span style="color:var(--blue);font-weight:600">Perbaikan: </span>${escapeHTML(s.improve)}</div>` : ''}
     </article>`).join('');
   setTimeout(registerAllLongPress, 60);
@@ -1069,7 +1093,7 @@ function renderSosials() {
 function delSosial(i) {
   if (!konfirmasiHapus('catatan sosial ini')) return;
   state.sosials.splice(i, 1); saveAndSync(); renderSosials();
-  showToast('🗑️ Catatan sosial dihapus');
+  showToast('Catatan sosial dihapus');
 }
 
 /* ============================================================
@@ -1087,7 +1111,7 @@ function addEmosi() {
   const mood     = document.getElementById('e-mood')?.value;
   const cause    = document.getElementById('e-cause')?.value.trim()    || '';
   const solution = document.getElementById('e-solution')?.value.trim() || '';
-  if (!mood) { showToast('⚠️ Pilih mood terlebih dahulu'); return; }
+  if (!mood) { showToast('⚠ Pilih mood terlebih dahulu'); return; }
   state.emosis.unshift({ date, mood, cause, solution });
   clearFields('e-cause','e-solution');
   saveAndSync(); renderEmosi(); showToast('✓ Emosi dicatat');
@@ -1113,7 +1137,7 @@ function renderEmosi() {
 
 function delEmosi(i) {
   if (!konfirmasiHapus('catatan emosi ini')) return;
-  state.emosis.splice(i, 1); saveAndSync(); renderEmosi(); showToast('🗑️ Catatan emosi dihapus');
+  state.emosis.splice(i, 1); saveAndSync(); renderEmosi(); showToast('Catatan emosi dihapus');
 }
 
 /* ============================================================
@@ -1132,18 +1156,18 @@ function claimDailyStreak() {
   saveAndSync(); updateRewardPage(); updateDashboard();
 
   const MILESTONES = {
-    1:  ['🌱','🎊 ✨ 🎊','Perjalanan Dimulai!',   'Selamat melakukan check-in pertamamu!'],
-    3:  ['🔥','🎊 🔥 🎊','3 Hari Berturut!',      'Kamu berhasil menjaga konsistensi 3 hari!'],
-    7:  ['🌟','🎊 🌟 🏆','Consistency Starter!', 'LUAR BIASA! 7 hari berturut-turut!'],
-    14: ['💎','🎊 💎 🎊','Two-Week Warrior!',     '14 hari konsisten! Badge sudah milikmu!'],
-    30: ['👑','👑 🎊 🏆 🎊 👑','ULTIMATE ACHIEVER!','WOW! 30 HARI BERTURUT-TURUT!']
+    1:  ['ms-icon-1','Perjalanan Dimulai!',   'Selamat melakukan check-in pertamamu!'],
+    3:  ['ms-icon-3','3 Hari Berturut!',      'Kamu berhasil menjaga konsistensi 3 hari!'],
+    7:  ['ms-icon-7','Consistency Starter!', 'LUAR BIASA! 7 hari berturut-turut!'],
+    14: ['ms-icon-14','Two-Week Warrior!',     '14 hari konsisten! Badge sudah milikmu!'],
+    30: ['ms-icon-30','ULTIMATE ACHIEVER!','WOW! 30 HARI BERTURUT-TURUT!']
   };
   const s = state.streak;
   if (MILESTONES[s] && (s > 1 || state.checkins.length === 1)) {
-    const [icon, conf, title, desc] = MILESTONES[s];
-    showRewardModal(icon, conf, title, desc);
+    const [icon, title, desc] = MILESTONES[s];
+    showRewardModal(icon, null, title, desc);
   } else {
-    showToast(`🔥 Check-in berhasil! Streak: ${s} hari`);
+    showToast(`Check-in berhasil! Streak: ${s} hari`);
   }
 }
 
@@ -1152,11 +1176,11 @@ function updateRewardPage() {
   setText('streak-count', s);
 
   const MSGS = [
-    [30,'ULTIMATE ACHIEVER! 👑','Kamu adalah inspirasi! Pertahankan!'],
-    [14,'Two-Week Warrior! 💎','Tinggal 16 hari lagi untuk Ultimate Achiever'],
-    [7, 'Consistency Starter unlocked! 🌟','Tinggal 23 hari lagi untuk reward BESAR'],
-    [3, '3 hari! Kamu sedang on fire! 🔥','Tinggal 4 hari lagi untuk badge pertama'],
-    [1, 'Hari pertama! Mulai yang baik 💪','Lanjutkan besok untuk membangun momentum'],
+    [30,'ULTIMATE ACHIEVER!','Kamu adalah inspirasi! Pertahankan!'],
+    [14,'Two-Week Warrior!','Tinggal 16 hari lagi untuk Ultimate Achiever'],
+    [7, 'Consistency Starter unlocked!','Tinggal 23 hari lagi untuk reward BESAR'],
+    [3, '3 hari! On fire!','Tinggal 4 hari lagi untuk badge pertama'],
+    [1, 'Hari pertama! Mulai yang baik','Lanjutkan besok untuk membangun momentum'],
     [0, 'Mulai streak-mu hari ini!','Check habit & jurnal untuk membangun streak']
   ];
   const [,msgT,msgS] = MSGS.find(([min]) => s >= min) || MSGS[MSGS.length - 1];
@@ -1176,7 +1200,7 @@ function updateRewardPage() {
     if (!ok) return;
     document.getElementById(`ms-${id}`)?.classList.add('earned');
     const st = document.getElementById(`ms-${id}-status`);
-    if (st) st.innerHTML = '<span class="badge badge-green" aria-label="Sudah diraih">✅ Earned</span>';
+    if (st) st.innerHTML = '<span class="badge badge-green" aria-label="Sudah diraih"><svg width="11" height="11" style="vertical-align:-1px;margin-right:3px"><use href="#icon-check-circle"/></svg>Earned</span>';
   };
   unlockMs('1',       state.checkins.length >= 1);
   unlockMs('3',       s >= 3);
@@ -1192,7 +1216,7 @@ function updateRewardPage() {
       ? emptyHTML('📅','Belum ada check-in.')
       : state.checkins.slice(0, 10).map(c => `
           <div class="quick-stat">
-            <span style="font-size:18px" aria-hidden="true">🔥</span>
+            <svg width="18" height="18" style="color:#f97316;vertical-align:-3px"><use href="#icon-fire"/></svg>
             <span style="flex:1;font-size:13px"><time datetime="${c.date}">${c.date}</time></span>
             <span class="badge badge-amber">Streak: ${c.streak} hari</span>
           </div>`).join('');
@@ -1221,10 +1245,10 @@ function saveLearning() {
   const insight  = document.getElementById('l-insight')?.value.trim()  || '';
   const duration = document.getElementById('l-duration')?.value || '';
 
-  if (!subject) { showToast('⚠️ Isi kolom Topik terlebih dahulu'); document.getElementById('l-subject')?.focus(); return; }
-  if (!what)    { showToast('⚠️ Isi kolom Materi terlebih dahulu'); document.getElementById('l-what')?.focus(); return; }
+  if (!subject) { showToast('⚠ Isi kolom Topik terlebih dahulu'); document.getElementById('l-subject')?.focus(); return; }
+  if (!what)    { showToast('⚠ Isi kolom Materi terlebih dahulu'); document.getElementById('l-what')?.focus(); return; }
   if (duration && (isNaN(Number(duration)) || Number(duration) <= 0)) {
-    showToast('⚠️ Durasi harus berupa angka positif'); document.getElementById('l-duration')?.focus(); return;
+    showToast('⚠ Durasi harus berupa angka positif'); document.getElementById('l-duration')?.focus(); return;
   }
 
   state.learnings.unshift({ date, subject, what, insight, duration, cat: selectedCat });
@@ -1232,7 +1256,7 @@ function saveLearning() {
   document.querySelectorAll('#cat-chips .cat-chip').forEach(b => { b.classList.remove('sel'); b.setAttribute('aria-pressed','false'); });
   selectedCat = ''; state.selectedCat = '';
   saveAndSync(); renderLearnings(); updateLearningStats(); updateRewardPage();
-  showToast('📚 Sesi belajar tersimpan!');
+  showToast('Sesi belajar tersimpan!');
 }
 
 function renderLearnings() {
@@ -1242,10 +1266,10 @@ function renderLearnings() {
   el.innerHTML = state.learnings.map((l, i) => `
     <article class="learning-entry">
       <div class="learning-entry-header">
-        <span class="learning-date">📅 <time datetime="${l.date}">${l.date}</time></span>
+        <span class="learning-date"><svg width="11" height="11" style="vertical-align:-1px;margin-right:4px;color:var(--text3)"><use href="#icon-calendar"/></svg><time datetime="${l.date}">${l.date}</time></span>
         <div style="display:flex;align-items:center;gap:8px">
           ${l.cat      ? `<span class="learning-tag">${escapeHTML(l.cat)}</span>` : ''}
-          ${l.duration ? `<span class="badge badge-blue">⏱ ${escapeHTML(l.duration)} mnt</span>` : ''}
+          ${l.duration ? `<span class="badge badge-blue"><svg width="11" height="11" style="vertical-align:-1px;margin-right:3px"><use href="#icon-calendar"/></svg>${escapeHTML(l.duration)} mnt</span>` : ''}
           <button class="edit-btn" data-action="editLearning(${i})" aria-label="Edit sesi: ${escapeHTML(l.subject)}"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg></button>
           <button class="del-btn" data-action="delLearning(${i})" aria-label="Hapus sesi: ${escapeHTML(l.subject)}"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg></button>
         </div>
@@ -1263,7 +1287,7 @@ function delLearning(i) {
   if (!state.learnings[i]) return;
   if (!konfirmasiHapus(`sesi belajar "${state.learnings[i].subject}"`)) return;
   state.learnings.splice(i, 1);
-  saveAndSync(); renderLearnings(); updateLearningStats(); showToast('🗑️ Sesi belajar dihapus');
+  saveAndSync(); renderLearnings(); updateLearningStats(); showToast('Sesi belajar dihapus');
 }
 
 function updateLearningStats() {
@@ -1300,10 +1324,10 @@ const SYMPTOM_LABEL = {
   insomnia: 'Insomnia', nafsu_makan: 'Nafsu Makan Naik', sembelit: 'Sembelit/Diare'
 };
 const MOOD_LABEL = {
-  baik: '😊 Baik', biasa: '😐 Biasa', sensitif: '😢 Sensitif',
-  mudah_marah: '😠 Mudah Marah', cemas: '😰 Cemas', depresi: '😔 Depresi'
+  baik: 'Baik', biasa: 'Biasa', sensitif: 'Sensitif',
+  mudah_marah: 'Mudah Marah', cemas: 'Cemas', depresi: 'Depresi'
 };
-const FLOW_LABEL = { ringan: '🩸 Ringan', sedang: '🩸🩸 Sedang', deras: '🩸🩸🩸 Deras' };
+const FLOW_LABEL = { ringan: '◆ Ringan', sedang: '◆◆ Sedang', deras: '◆◆◆ Deras' };
 
 let _selectedSymptoms = [];
 
@@ -1325,8 +1349,8 @@ function addMenstruasi() {
   const mood  = document.getElementById('mens-mood')?.value || '';
   const note  = document.getElementById('mens-note')?.value?.trim() || '';
 
-  if (!start) { showToast('⚠️ Isi tanggal mulai haid'); return; }
-  if (end && end < start) { showToast('⚠️ Tanggal selesai tidak boleh sebelum mulai'); return; }
+  if (!start) { showToast('⚠ Isi tanggal mulai haid'); return; }
+  if (end && end < start) { showToast('⚠ Tanggal selesai tidak boleh sebelum mulai'); return; }
 
   state.menstruasis.unshift({ start, end, flow, symptoms: [..._selectedSymptoms], mood, note });
   saveAndSync();
@@ -1340,7 +1364,7 @@ function addMenstruasi() {
   document.querySelectorAll('.symptom-tag.active').forEach(b => b.classList.remove('active'));
 
   renderMenstruasi();
-  showToast('🌸 Siklus berhasil disimpan!');
+  showToast('Siklus berhasil disimpan!');
 }
 
 function delMenstruasi(i) {
@@ -1376,8 +1400,8 @@ function getMensStats() {
   let phase = '—';
   if (dayInCycle >= 1 && dayInCycle <= avgDuration) phase = `🩸 Menstruasi (hari ke-${dayInCycle})`;
   else if (dayInCycle <= 7) phase = '🌱 Folikular Awal';
-  else if (dayInCycle <= avgCycle - 14) phase = '🌼 Folikular';
-  else if (dayInCycle >= avgCycle - 16 && dayInCycle <= avgCycle - 12) phase = '🥚 Ovulasi';
+  else if (dayInCycle <= avgCycle - 14) phase = 'Folikular';
+  else if (dayInCycle >= avgCycle - 16 && dayInCycle <= avgCycle - 12) phase = 'Ovulasi';
   else if (dayInCycle < avgCycle) phase = '🌙 Luteal';
   else phase = '⏳ Menjelang Haid';
 
@@ -1601,11 +1625,16 @@ function showContextMenu(x, y, items) {
   _ctxMenu.className = 'ctx-menu';
   _ctxMenu.setAttribute('role', 'menu');
 
+  const CTX_ICON_MAP = {
+    'trash': '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v6M14 11v6M9 6V4h6v2"/></svg>',
+    'edit':  '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/><path d="M18.5 2.5a2.12 2.12 0 013 3L12 15l-4 1 1-4z"/></svg>',
+  };
   items.forEach(({ icon, label, action, danger }) => {
     const btn = document.createElement('button');
     btn.className = 'ctx-menu-item' + (danger ? ' danger' : '');
     btn.setAttribute('role', 'menuitem');
-    btn.innerHTML = `<span aria-hidden="true">${icon}</span>${label}`;
+    const iconHtml = CTX_ICON_MAP[icon] || (icon ? `<span aria-hidden="true">${icon}</span>` : '');
+    btn.innerHTML = `<span aria-hidden="true" style="display:inline-flex;align-items:center">${iconHtml}</span>${label}`;
     btn.addEventListener('click', () => { closeContextMenu(); action(); });
     _ctxMenu.appendChild(btn);
   });
@@ -1700,7 +1729,7 @@ function makeRowMenuBtn(getItems) {
 function getSearchSources() {
   return [
     {
-      page: 'target', icon: '🎯', badge: 'Target',
+      page: 'target', icon: 'target', badge: 'Target',
       getItems: () => state.targets.map((t, i) => ({
         title: t.name,
         meta: `${t.deadline || 'Tanpa deadline'} · ${t.status === 'done' ? '✓ Selesai' : '⏳ Berjalan'}`,
@@ -1708,7 +1737,7 @@ function getSearchSources() {
       }))
     },
     {
-      page: 'habit', icon: '🔥', badge: 'Habit',
+      page: 'habit', icon: 'habit', badge: 'Habit',
       getItems: () => state.habits.map((h) => ({
         title: h,
         meta: 'Habit harian',
@@ -1716,7 +1745,7 @@ function getSearchSources() {
       }))
     },
     {
-      page: 'todo', icon: '✅', badge: 'To-Do',
+      page: 'todo', icon: 'todo', badge: 'To-Do',
       getItems: () => state.todos.map((t) => ({
         title: t.text,
         meta: `${t.done ? '✓ Selesai' : '○ Belum'} · ${t.createdAt || ''}`,
@@ -1724,7 +1753,7 @@ function getSearchSources() {
       }))
     },
     {
-      page: 'journal', icon: '📝', badge: 'Jurnal',
+      page: 'journal', icon: 'journal', badge: 'Jurnal',
       getItems: () => state.journals.map((j) => ({
         title: j.did ? j.did.slice(0, 80) : `Jurnal ${j.date}`,
         meta: `${j.date} · ${j.mood || 'Tanpa mood'}`,
@@ -1732,7 +1761,7 @@ function getSearchSources() {
       }))
     },
     {
-      page: 'reflection', icon: '🔮', badge: 'Refleksi',
+      page: 'reflection', icon: 'refleksi', badge: 'Refleksi',
       getItems: () => state.reflections.map((r) => ({
         title: r.grow ? r.grow.slice(0, 80) : `Refleksi ${r.date}`,
         meta: `${r.date} · ${r.lack ? r.lack.slice(0, 40) : ''}`,
@@ -1740,7 +1769,7 @@ function getSearchSources() {
       }))
     },
     {
-      page: 'sosial', icon: '💬', badge: 'Komunikasi',
+      page: 'sosial', icon: 'komunikasi', badge: 'Komunikasi',
       getItems: () => state.sosials.map((s) => ({
         title: s.topic || `Dengan ${s.who}`,
         meta: `${s.date} · ${s.who || ''}`,
@@ -1748,7 +1777,7 @@ function getSearchSources() {
       }))
     },
     {
-      page: 'emosi', icon: '🌊', badge: 'Emosi',
+      page: 'emosi', icon: 'emosi', badge: 'Emosi',
       getItems: () => state.emosis.map((e) => ({
         title: `${e.mood} — ${e.cause ? e.cause.slice(0, 60) : 'Tanpa keterangan'}`,
         meta: `${e.date} · ${e.solution ? e.solution.slice(0, 40) : ''}`,
@@ -1756,7 +1785,7 @@ function getSearchSources() {
       }))
     },
     {
-      page: 'learning', icon: '📚', badge: 'Learning',
+      page: 'learning', icon: 'learning', badge: 'Learning',
       getItems: () => state.learnings.map((l) => ({
         title: l.subject || 'Sesi belajar',
         meta: `${l.date} · ${l.what ? l.what.slice(0, 50) : ''} · ${l.duration ? l.duration + ' menit' : ''}`,
@@ -1775,7 +1804,7 @@ function openSearch() {
   // Tampilkan hint awal
   document.getElementById('search-results').innerHTML =
     `<div class="search-empty" id="search-hint">
-       <div class="search-empty-icon">🔍</div>
+       <div class="search-empty-icon"><svg width="28" height="28" style="color:var(--text3)"><use href="#icon-search"/></svg></div>
        Ketik untuk mencari di semua menu
      </div>`;
 }
@@ -1807,7 +1836,7 @@ function runSearch(raw) {
   if (!q) {
     container.innerHTML =
       `<div class="search-empty">
-         <div class="search-empty-icon">🔍</div>
+         <div class="search-empty-icon"><svg width="28" height="28" style="color:var(--text3)"><use href="#icon-search"/></svg></div>
          Ketik untuk mencari di semua menu
        </div>`;
     return;
@@ -1817,6 +1846,17 @@ function runSearch(raw) {
   let totalHits = 0;
   let html = '';
 
+  const SEARCH_ICON_MAP = {
+    'target':     '<svg width="16" height="16"><use href="#icon-target"/></svg>',
+    'habit':      '<svg width="16" height="16"><use href="#icon-habit"/></svg>',
+    'todo':       '<svg width="16" height="16"><use href="#icon-todo"/></svg>',
+    'journal':    '<svg width="16" height="16"><use href="#icon-journal"/></svg>',
+    'refleksi':   '<svg width="16" height="16"><use href="#icon-refleksi"/></svg>',
+    'komunikasi': '<svg width="16" height="16"><use href="#icon-komunikasi"/></svg>',
+    'emosi':      '<svg width="16" height="16"><use href="#icon-emosi"/></svg>',
+    'learning':   '<svg width="16" height="16"><use href="#icon-learning"/></svg>',
+  };
+
   sources.forEach(src => {
     const items = src.getItems().filter(item =>
       item.title.toLowerCase().includes(q) ||
@@ -1824,14 +1864,15 @@ function runSearch(raw) {
     );
     if (!items.length) return;
     totalHits += items.length;
+    const iconSvg = SEARCH_ICON_MAP[src.icon] || '';
 
-    html += `<div class="search-group-label">${src.icon} ${src.badge}</div>`;
+    html += `<div class="search-group-label">${iconSvg} ${src.badge}</div>`;
     items.forEach((item, idx) => {
       // Encode action index untuk onclick
       html += `<button class="search-result-item"
                  data-action="triggerSearchResult('${src.page}', ${idx})"
                  role="listitem">
-        <div class="search-result-icon" aria-hidden="true">${src.icon}</div>
+        <div class="search-result-icon" aria-hidden="true">${iconSvg}</div>
         <div class="search-result-body">
           <div class="search-result-title">${highlightMatch(item.title, raw.trim())}</div>
           <div class="search-result-meta">${highlightMatch(item.meta, raw.trim())}</div>
@@ -1844,7 +1885,7 @@ function runSearch(raw) {
   if (!totalHits) {
     container.innerHTML =
       `<div class="search-empty">
-         <div class="search-empty-icon">😶</div>
+         <div class="search-empty-icon"><svg width="28" height="28" style="color:var(--text3)"><use href="#icon-emosi"/></svg></div>
          Tidak ada hasil untuk "<strong>${escapeHTML(raw.trim())}</strong>"
        </div>`;
     return;
@@ -1905,7 +1946,7 @@ function saveEditModal() {
 function editTarget(i) {
   const t = state.targets[i];
   if (!t) return;
-  openEditModal('✏️ Edit Target', `
+  openEditModal('Edit Target', `
     <label style="display:block;font-size:12px;color:var(--text3);margin-bottom:4px">Nama Target</label>
     <input id="em-t-name" type="text" value="${escapeHTML(t.name)}" style="width:100%;margin-bottom:12px">
     <label style="display:block;font-size:12px;color:var(--text3);margin-bottom:4px">Deadline</label>
@@ -1918,7 +1959,7 @@ function editTarget(i) {
 }
 function _saveEditTarget(i) {
   const name = document.getElementById('em-t-name')?.value.trim();
-  if (!name) { showToast('⚠️ Nama target tidak boleh kosong'); return; }
+  if (!name) { showToast('⚠ Nama target tidak boleh kosong'); return; }
   state.targets[i].name     = name;
   state.targets[i].deadline = document.getElementById('em-t-deadline')?.value || '';
   state.targets[i].status   = document.getElementById('em-t-status')?.value || 'on_progress';
@@ -1931,7 +1972,7 @@ function editTodo(id) {
   // eslint-disable-next-line eqeqeq
   const t = state.todos.find(x => x.id == id);
   if (!t) return;
-  openEditModal('✏️ Edit Tugas', `
+  openEditModal('Edit Tugas', `
     <label style="display:block;font-size:12px;color:var(--text3);margin-bottom:4px">Teks Tugas</label>
     <input id="em-td-text" type="text" value="${escapeHTML(t.text)}" style="width:100%;margin-bottom:12px">
     <label style="display:block;font-size:12px;color:var(--text3);margin-bottom:4px">Tanggal</label>
@@ -1941,10 +1982,10 @@ function editTodo(id) {
 }
 function _saveEditTodo(todoId) {
   const text = document.getElementById('em-td-text')?.value.trim();
-  if (!text) { showToast('⚠️ Teks tugas tidak boleh kosong'); return; }
+  if (!text) { showToast('⚠ Teks tugas tidak boleh kosong'); return; }
   // eslint-disable-next-line eqeqeq
   const todo = state.todos.find(x => x.id == todoId);
-  if (!todo) { showToast('⚠️ Tugas tidak ditemukan'); return; }
+  if (!todo) { showToast('⚠ Tugas tidak ditemukan'); return; }
   todo.text    = text;
   todo.dueDate = document.getElementById('em-td-date')?.value || '';
   todo.dueTime = document.getElementById('em-td-time')?.value || '';
@@ -1958,7 +1999,7 @@ function editJournal(i) {
   if (!j) return;
   const moodOpts = ['','Bahagia','Semangat','Biasa','Lelah','Cemas','Sedih','Marah','Stres']
     .map(m => `<option value="${m}" ${j.mood===m?'selected':''}>${m||'— Pilih mood —'}</option>`).join('');
-  openEditModal('✏️ Edit Jurnal', `
+  openEditModal('Edit Jurnal', `
     <label style="display:block;font-size:12px;color:var(--text3);margin-bottom:4px">Tanggal</label>
     <input id="em-j-date" type="date" value="${j.date}" style="width:100%;margin-bottom:12px">
     <label style="display:block;font-size:12px;color:var(--text3);margin-bottom:4px">Aktivitas</label>
@@ -1972,7 +2013,7 @@ function editJournal(i) {
 }
 function _saveEditJournal(i) {
   const did = document.getElementById('em-j-did')?.value.trim();
-  if (!did) { showToast('⚠️ Aktivitas tidak boleh kosong'); return; }
+  if (!did) { showToast('⚠ Aktivitas tidak boleh kosong'); return; }
   state.journals[i].date    = document.getElementById('em-j-date')?.value || today();
   state.journals[i].did     = did;
   state.journals[i].good    = document.getElementById('em-j-good')?.value.trim() || '';
@@ -1986,7 +2027,7 @@ function _saveEditJournal(i) {
 function editReflection(i) {
   const r = state.reflections[i];
   if (!r) return;
-  openEditModal('✏️ Edit Refleksi', `
+  openEditModal('Edit Refleksi', `
     <label style="display:block;font-size:12px;color:var(--text3);margin-bottom:4px">Tanggal</label>
     <input id="em-r-date" type="date" value="${r.date}" style="width:100%;margin-bottom:12px">
     <label style="display:block;font-size:12px;color:var(--text3);margin-bottom:4px">Yang Sudah Berkembang</label>
@@ -1998,7 +2039,7 @@ function editReflection(i) {
 }
 function _saveEditReflection(i) {
   const grow = document.getElementById('em-r-grow')?.value.trim();
-  if (!grow) { showToast('⚠️ Kolom berkembang tidak boleh kosong'); return; }
+  if (!grow) { showToast('⚠ Kolom berkembang tidak boleh kosong'); return; }
   state.reflections[i].date = document.getElementById('em-r-date')?.value || today();
   state.reflections[i].grow = grow;
   state.reflections[i].lack = document.getElementById('em-r-lack')?.value.trim() || '';
@@ -2011,7 +2052,7 @@ function _saveEditReflection(i) {
 function editSosial(i) {
   const s = state.sosials[i];
   if (!s) return;
-  openEditModal('✏️ Edit Catatan Sosial', `
+  openEditModal('Edit Catatan Sosial', `
     <label style="display:block;font-size:12px;color:var(--text3);margin-bottom:4px">Tanggal</label>
     <input id="em-s-date" type="date" value="${s.date}" style="width:100%;margin-bottom:12px">
     <label style="display:block;font-size:12px;color:var(--text3);margin-bottom:4px">Ngobrol dengan Siapa</label>
@@ -2025,7 +2066,7 @@ function editSosial(i) {
 }
 function _saveEditSosial(i) {
   const who = document.getElementById('em-s-who')?.value.trim();
-  if (!who) { showToast('⚠️ Nama orang tidak boleh kosong'); return; }
+  if (!who) { showToast('⚠ Nama orang tidak boleh kosong'); return; }
   state.sosials[i].date    = document.getElementById('em-s-date')?.value || today();
   state.sosials[i].who     = who;
   state.sosials[i].topic   = document.getElementById('em-s-topic')?.value.trim() || '';
@@ -2041,7 +2082,7 @@ function editEmosi(i) {
   if (!e) return;
   const moods = ['Bahagia','Semangat','Biasa','Lelah','Cemas','Sedih','Marah','Stres']
     .map(m => `<option value="${m}" ${e.mood===m?'selected':''}>${m}</option>`).join('');
-  openEditModal('✏️ Edit Catatan Emosi', `
+  openEditModal('Edit Catatan Emosi', `
     <label style="display:block;font-size:12px;color:var(--text3);margin-bottom:4px">Tanggal</label>
     <input id="em-e-date" type="date" value="${e.date}" style="width:100%;margin-bottom:12px">
     <label style="display:block;font-size:12px;color:var(--text3);margin-bottom:4px">Mood</label>
@@ -2053,7 +2094,7 @@ function editEmosi(i) {
 }
 function _saveEditEmosi(i) {
   const mood = document.getElementById('em-e-mood')?.value;
-  if (!mood) { showToast('⚠️ Pilih mood'); return; }
+  if (!mood) { showToast('⚠ Pilih mood'); return; }
   state.emosis[i].date     = document.getElementById('em-e-date')?.value || today();
   state.emosis[i].mood     = mood;
   state.emosis[i].cause    = document.getElementById('em-e-cause')?.value.trim() || '';
@@ -2068,7 +2109,7 @@ function editLearning(i) {
   if (!l) return;
   const cats = ['','Teknologi','Bahasa','Finansial','Kesehatan','Seni','Lainnya']
     .map(c => `<option value="${c}" ${l.cat===c?'selected':''}>${c||'— Pilih kategori —'}</option>`).join('');
-  openEditModal('✏️ Edit Sesi Belajar', `
+  openEditModal('Edit Sesi Belajar', `
     <label style="display:block;font-size:12px;color:var(--text3);margin-bottom:4px">Tanggal</label>
     <input id="em-l-date" type="date" value="${l.date}" style="width:100%;margin-bottom:12px">
     <label style="display:block;font-size:12px;color:var(--text3);margin-bottom:4px">Topik</label>
@@ -2085,8 +2126,8 @@ function editLearning(i) {
 function _saveEditLearning(i) {
   const subject = document.getElementById('em-l-subject')?.value.trim();
   const what    = document.getElementById('em-l-what')?.value.trim();
-  if (!subject) { showToast('⚠️ Topik tidak boleh kosong'); return; }
-  if (!what)    { showToast('⚠️ Materi tidak boleh kosong'); return; }
+  if (!subject) { showToast('⚠ Topik tidak boleh kosong'); return; }
+  if (!what)    { showToast('⚠ Materi tidak boleh kosong'); return; }
   state.learnings[i].date     = document.getElementById('em-l-date')?.value || today();
   state.learnings[i].subject  = subject;
   state.learnings[i].what     = what;
@@ -2136,7 +2177,7 @@ function exportData() {
 function importData(input) {
   const file = input.files[0];
   if (!file) return;
-  if (!window.confirm('⚠️ Import akan menimpa data saat ini.\n\nLanjutkan?')) {
+  if (!window.confirm('Import akan menimpa data saat ini.\n\nLanjutkan?')) {
     input.value = ''; return;
   }
   const reader = new FileReader();
@@ -2162,7 +2203,7 @@ function importData(input) {
       renderAll(); updateDashboard();
       showToast('✓ Data berhasil diimport!');
     } catch(err) {
-      showToast('❌ File tidak valid: ' + err.message);
+      showToast('File tidak valid: ' + err.message);
     }
     input.value = '';
   };

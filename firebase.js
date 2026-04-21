@@ -30,8 +30,7 @@ import {
   serverTimestamp
 } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
 
-// ⚠️ GANTI DENGAN CONFIG FIREBASE KAMU
-// Dapatkan dari: Firebase Console → Project Settings → Your apps → Web app
+// FIREBASE CONFIG
 const firebaseConfig = {
   apiKey: "AIzaSyAsRDFhH4V0PHOumpwYXs4U6Z-uZS5g1C4",
   authDomain: "trackify-app-420ea.firebaseapp.com",

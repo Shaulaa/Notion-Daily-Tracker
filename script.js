@@ -40,6 +40,13 @@ import {
   getStreak, updateStreak, achieveMilestone
 } from './firebase.js';
 
+import {
+  initNotifications, setAppState, getPermissionStatus,
+  enableNotifications, disableNotifications,
+  updateTypePrefs, updateDeadlinePrefs, testNotification,
+  renderNotifSettings
+} from './notifications.js';
+
 // ============================================================
 // AUTH HANDLER
 // ============================================================
@@ -251,6 +258,7 @@ let selectedCat = '';
 function saveState() {
   state.habitRows = habitRows;
   StorageManager.save(state);
+  setAppState(state);
 }
 
 // ============================================================
@@ -349,6 +357,7 @@ function initApp() {
   setDefaultFormDates();
   renderAll();
   renderDashboardDate();
+  initNotifications();
 }
 
 function setDefaultFormDates() {
@@ -1577,7 +1586,11 @@ function updateSettingsPage() {
   setText('settings-count-streak',   `Streak ${state.streak} hari · ${state.checkins.length} check-in`);
   // Update tombol tema di settings
   const btn = document.getElementById('settings-theme-btn');
-  if (btn) btn.textContent = state.theme === 'dark' ? '☀️ Ganti ke Mode Terang' : '🌙 Ganti ke Mode Gelap';
+  if (btn) {
+    const isDark = state.theme === 'dark';
+    btn.innerHTML = `<svg width="14" height="14" style="vertical-align:-1px;margin-right:6px"><use href="#icon-moon"/></svg>${isDark ? 'Ganti ke Mode Terang' : 'Ganti ke Mode Gelap'}`;
+  }
+  renderNotifSettings();
 }
 
 function clearSectionData(section) {
@@ -2212,6 +2225,56 @@ function importData(input) {
 
 
 
+/* ============================================================
+   NOTIFIKASI — handler untuk UI di settings
+   ============================================================ */
+
+async function toggleMasterNotif(checkbox) {
+  if (checkbox.checked) {
+    const status = await enableNotifications();
+    if (status === 'denied') {
+      checkbox.checked = false;
+      showToast('Izin notifikasi ditolak. Aktifkan di pengaturan browser.');
+    } else if (status === 'unsupported') {
+      checkbox.checked = false;
+      showToast('Browser tidak mendukung notifikasi.');
+    } else {
+      showToast('✓ Notifikasi diaktifkan');
+      setAppState(state);
+    }
+  } else {
+    disableNotifications();
+    showToast('Notifikasi dimatikan');
+  }
+  renderNotifSettings();
+}
+
+function toggleNotifType(checkbox, type) {
+  updateTypePrefs(type, { enabled: checkbox.checked });
+  renderNotifSettings();
+}
+
+function toggleNotifDeadline(checkbox, type) {
+  updateDeadlinePrefs(type, { enabled: checkbox.checked });
+  renderNotifSettings();
+}
+
+function updateNotifTime(input, type) {
+  if (!input.value) return;
+  updateTypePrefs(type, { time: input.value });
+}
+
+function updateNotifAdvance(input, type) {
+  const val = parseInt(input.value);
+  if (isNaN(val) || val < 0) return;
+  updateDeadlinePrefs(type, { advanceDays: val });
+}
+
+function testNotif(type) {
+  const ok = testNotification(type);
+  showToast(ok ? '✓ Notifikasi test dikirim' : 'Aktifkan notifikasi terlebih dahulu');
+}
+
 document.addEventListener('keydown', e => {
   if (e.key === 'Escape') { closeSidebar(); closeRewardModal(); closeContextMenu(); closeSearch(); }
   if ((e.metaKey || e.ctrlKey) && e.key === 'k') { e.preventDefault(); openSearch(); }
@@ -2269,6 +2332,10 @@ Object.assign(window, {
 
   // Reward / Streak
   claimDailyStreak, closeRewardModal,
+
+  // Notifikasi
+  toggleMasterNotif, toggleNotifType, toggleNotifDeadline,
+  updateNotifTime, updateNotifAdvance, testNotif,
 
   // Settings & Reset
   resetAllData, clearSectionData, updateSettingsPage,

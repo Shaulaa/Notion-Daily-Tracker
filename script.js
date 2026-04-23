@@ -407,6 +407,7 @@ function toggleTheme() {
   applyTheme(next);
   try { localStorage.setItem('Trackify_theme', next); } catch(e) {}
   showToast(next === 'dark' ? 'Mode Gelap aktif' : 'Mode Terang aktif');
+  setTimeout(renderDashboardCharts, 50);
 }
 
 /* ============================================================
@@ -415,7 +416,7 @@ function toggleTheme() {
 
 const VALID_PAGES = new Set([
   'dashboard','target','habit','todo','reward','learning',
-  'journal','reflection','sosial','emosi','menstruasi','settings'
+  'journal','reflection','sosial','emosi','menstruasi','settings','privacy'
 ]);
 
 // ── History API: back button mobile tidak keluar dari app ──
@@ -596,6 +597,7 @@ function emptyHTML(iconKey, msg) {
     '🗒️': '<svg width="28" height="28"><use href="#icon-todo"/></svg>',
     '🔍': '<svg width="28" height="28"><use href="#icon-search"/></svg>',
     '😶': '<svg width="28" height="28"><use href="#icon-emosi"/></svg>',
+    '🌸': '<svg width="28" height="28"><use href="#icon-siklus"/></svg>',
   };
   const iconSvg = EMPTY_ICONS[iconKey] || `<svg width="28" height="28"><use href="#icon-info"/></svg>`;
   return `<div class="empty" role="status" aria-label="${msg}">
@@ -703,6 +705,174 @@ function updateDashboard() {
 
   const qaSub = document.getElementById('qa-streak-sub');
   if (qaSub) qaSub.textContent = `${state.streak} hari streak`;
+
+  renderDashboardCharts();
+}
+
+/* ── GRAFIK DASHBOARD (Chart.js via CDN) ── */
+let _chartInstances = {};
+
+function _destroyChart(id) {
+  if (_chartInstances[id]) { _chartInstances[id].destroy(); delete _chartInstances[id]; }
+}
+
+function renderDashboardCharts() {
+  // Warna dari CSS variables (computed)
+  const cs = getComputedStyle(document.documentElement);
+  const accent   = cs.getPropertyValue('--accent').trim()   || '#7c6ef7';
+  const green    = cs.getPropertyValue('--green').trim()    || '#22c55e';
+  const amber    = cs.getPropertyValue('--amber').trim()    || '#f59e0b';
+  const pink     = cs.getPropertyValue('--pink').trim()     || '#f472b6';
+  const text3    = cs.getPropertyValue('--text3').trim()    || '#4a5170';
+  const text2    = cs.getPropertyValue('--text2').trim()    || '#8b94b8';
+  const border   = cs.getPropertyValue('--border').trim()   || '#252a3d';
+
+  const chartDefaults = {
+    responsive: true,
+    maintainAspectRatio: false,
+    plugins: { legend: { labels: { color: text2, font: { family: "'Plus Jakarta Sans',sans-serif", size: 11 }, boxWidth: 12 } } },
+    scales: {
+      x: { ticks: { color: text3, font: { size: 10 } }, grid: { color: border } },
+      y: { ticks: { color: text3, font: { size: 10 } }, grid: { color: border }, beginAtZero: true }
+    }
+  };
+
+  // ── 1. Habit 7 hari terakhir ──
+  (function() {
+    const id = 'chart-habit-week';
+    const emptyEl = document.getElementById(id + '-empty');
+    const canvas  = document.getElementById(id);
+    if (!canvas) return;
+    _destroyChart(id);
+    const days7 = Array.from({length:7}, (_,i) => {
+      const d = new Date(); d.setDate(d.getDate() - (6 - i));
+      return d.toISOString().slice(0,10);
+    });
+    const labels = days7.map(d => {
+      const dt = new Date(d + 'T00:00:00');
+      return dt.toLocaleDateString('id-ID', { weekday:'short', day:'numeric' });
+    });
+    const total = state.habits.length;
+    const data  = days7.map(d => {
+      if (!total) return 0;
+      const done = state.habits.filter((_,hi) => state.habitData[`${d}_${hi}`] === 'done').length;
+      return Math.round(done / total * 100);
+    });
+    if (!total) {
+      canvas.style.display = 'none';
+      if (emptyEl) emptyEl.style.display = 'block';
+      return;
+    }
+    canvas.style.display = '';
+    if (emptyEl) emptyEl.style.display = 'none';
+    _chartInstances[id] = new Chart(canvas, {
+      type: 'bar',
+      data: {
+        labels,
+        datasets: [{ label: 'Habit Selesai (%)', data, backgroundColor: green + 'aa', borderColor: green, borderWidth: 1.5, borderRadius: 6 }]
+      },
+      options: { ...chartDefaults,
+        plugins: { ...chartDefaults.plugins, legend: { display: false } },
+        scales: { ...chartDefaults.scales, y: { ...chartDefaults.scales.y, max: 100 } }
+      }
+    });
+  })();
+
+  // ── 2. Distribusi Mood ──
+  (function() {
+    const id = 'chart-mood-dist';
+    const emptyEl = document.getElementById(id + '-empty');
+    const canvas  = document.getElementById(id);
+    if (!canvas) return;
+    _destroyChart(id);
+    const allEmosi = [...state.emosis, ...state.journals.map(j => ({ mood: j.mood }))].filter(e => e.mood);
+    if (!allEmosi.length) {
+      canvas.style.display = 'none';
+      if (emptyEl) emptyEl.style.display = 'block';
+      return;
+    }
+    canvas.style.display = '';
+    if (emptyEl) emptyEl.style.display = 'none';
+    const counts = {};
+    allEmosi.forEach(e => { counts[e.mood] = (counts[e.mood] || 0) + 1; });
+    const moodColors = { Bahagia:'#4ade80', Semangat:'#fbbf24', Biasa:'#94a3b8', Lelah:'#f97316', Cemas:'#a78bfa', Sedih:'#38bdf8', Marah:'#ef4444', Stres:'#f472b6', baik:'#4ade80', biasa:'#94a3b8', sensitif:'#38bdf8', mudah_marah:'#ef4444', cemas:'#a78bfa', depresi:'#f97316' };
+    const labels = Object.keys(counts);
+    const data   = Object.values(counts);
+    const colors = labels.map(l => moodColors[l] || accent);
+    _chartInstances[id] = new Chart(canvas, {
+      type: 'doughnut',
+      data: { labels, datasets: [{ data, backgroundColor: colors.map(c => c + 'cc'), borderColor: colors, borderWidth: 1.5 }] },
+      options: { responsive: true, maintainAspectRatio: false, cutout: '55%',
+        plugins: { legend: { position: 'right', labels: { color: text2, font: { family: "'Plus Jakarta Sans',sans-serif", size: 11 }, boxWidth: 12, padding: 8 } } }
+      }
+    });
+  })();
+
+  // ── 3. Status Target ──
+  (function() {
+    const id = 'chart-target-status';
+    const emptyEl = document.getElementById(id + '-empty');
+    const canvas  = document.getElementById(id);
+    if (!canvas) return;
+    _destroyChart(id);
+    if (!state.targets.length) {
+      canvas.style.display = 'none';
+      if (emptyEl) emptyEl.style.display = 'block';
+      return;
+    }
+    canvas.style.display = '';
+    if (emptyEl) emptyEl.style.display = 'none';
+    const done = state.targets.filter(t => t.status === 'done').length;
+    const prog = state.targets.length - done;
+    _chartInstances[id] = new Chart(canvas, {
+      type: 'doughnut',
+      data: {
+        labels: ['Selesai', 'On Progress'],
+        datasets: [{ data: [done, prog], backgroundColor: [green + 'cc', amber + 'cc'], borderColor: [green, amber], borderWidth: 1.5 }]
+      },
+      options: { responsive: true, maintainAspectRatio: false, cutout: '60%',
+        plugins: {
+          legend: { position: 'bottom', labels: { color: text2, font: { family: "'Plus Jakarta Sans',sans-serif", size: 11 }, boxWidth: 12 } },
+          title: { display: true, text: `${done} selesai dari ${state.targets.length}`, color: text2, font: { size: 12 } }
+        }
+      }
+    });
+  })();
+
+  // ── 4. Sesi Belajar 7 hari ──
+  (function() {
+    const id = 'chart-learning-week';
+    const emptyEl = document.getElementById(id + '-empty');
+    const canvas  = document.getElementById(id);
+    if (!canvas) return;
+    _destroyChart(id);
+    const days7 = Array.from({length:7}, (_,i) => {
+      const d = new Date(); d.setDate(d.getDate() - (6 - i));
+      return d.toISOString().slice(0,10);
+    });
+    const labels = days7.map(d => {
+      const dt = new Date(d + 'T00:00:00');
+      return dt.toLocaleDateString('id-ID', { weekday:'short', day:'numeric' });
+    });
+    const data = days7.map(d => state.learnings.filter(l => l.date === d).length);
+    if (!data.some(v => v > 0)) {
+      canvas.style.display = 'none';
+      if (emptyEl) emptyEl.style.display = 'block';
+      return;
+    }
+    canvas.style.display = '';
+    if (emptyEl) emptyEl.style.display = 'none';
+    _chartInstances[id] = new Chart(canvas, {
+      type: 'line',
+      data: {
+        labels,
+        datasets: [{ label: 'Sesi Belajar', data, borderColor: pink, backgroundColor: pink + '22', borderWidth: 2, pointBackgroundColor: pink, pointRadius: 4, fill: true, tension: 0.4 }]
+      },
+      options: { ...chartDefaults,
+        plugins: { ...chartDefaults.plugins, legend: { display: false } }
+      }
+    });
+  })();
 }
 
 /* ============================================================
@@ -713,7 +883,7 @@ function renderTargets() {
   const tb = document.getElementById('target-table');
   if (!tb) return;
   if (!state.targets.length) {
-    tb.innerHTML = `<tr><td colspan="5">${emptyHTML('🎯','Belum ada target.')}</td></tr>`; return;
+    tb.innerHTML = `<tr><td colspan="6" style="text-align:center;width:100%;display:block;border:none">${emptyHTML('🎯','Belum ada target.')}</td></tr>`; return;
   }
   tb.innerHTML = state.targets.map((t, i) => {
     const dl   = t.deadline ? new Date(t.deadline + 'T00:00:00') : null;
@@ -721,8 +891,10 @@ function renderTargets() {
     const prog = t.status === 'done' ? 100
                : days !== null ? Math.max(0, Math.min(85, 100 - days * 2)) : 30;
     const isDone = t.status === 'done';
+    const noteSnip = t.note ? escapeHTML(t.note.slice(0, 60)) + (t.note.length > 60 ? '…' : '') : '<span style="color:var(--text3)">—</span>';
     return `<tr>
       <td data-label="Target" style="font-weight:600">${escapeHTML(t.name)}</td>
+      <td data-label="Catatan" style="font-size:12px;color:var(--text2);max-width:160px">${noteSnip}</td>
       <td data-label="Deadline" style="color:var(--text3);font-size:12px"><time datetime="${t.deadline||''}">${t.deadline||'—'}</time></td>
       <td data-label="Status">
         <button class="status-toggle-btn ${isDone ? 'status-done' : 'status-progress'}"
@@ -752,9 +924,10 @@ function addTarget() {
   const name     = document.getElementById('t-name')?.value.trim();
   const deadline = document.getElementById('t-deadline')?.value;
   const status   = document.getElementById('t-status')?.value;
+  const note     = document.getElementById('t-note')?.value.trim() || '';
   if (!name) { showToast('⚠ Nama target tidak boleh kosong'); document.getElementById('t-name')?.focus(); return; }
-  state.targets.push({ name, deadline, status: status || 'on_progress' });
-  clearFields('t-name','t-deadline');
+  state.targets.push({ name, deadline, status: status || 'on_progress', note });
+  clearFields('t-name','t-deadline','t-note');
   saveAndSync(); renderTargets(); updateDashboard();
   showToast('✓ Target berhasil ditambahkan');
 }
@@ -947,15 +1120,19 @@ function addTodo() {
   const input = document.getElementById('todo-input');
   const v = input?.value.trim();
   if (!v) { showToast('⚠ Teks tugas tidak boleh kosong'); input?.focus(); return; }
-  const dateVal = document.getElementById('todo-date')?.value || '';
-  const timeVal = document.getElementById('todo-time')?.value || '';
+  const dateVal  = document.getElementById('todo-date')?.value || '';
+  const timeVal  = document.getElementById('todo-time')?.value || '';
+  const priority = document.getElementById('todo-priority')?.value || 'medium';
+  const category = document.getElementById('todo-category')?.value || '';
   state.todos.push({
     id: state._nextId++,
     text: v,
     done: false,
     createdAt: new Date().toISOString(),
     dueDate: dateVal,
-    dueTime: timeVal
+    dueTime: timeVal,
+    priority,
+    category
   });
   if (input) input.value = '';
   saveAndSync(); renderTodo(); updateDashboard(); showToast('✓ Tugas ditambahkan');
@@ -1336,7 +1513,12 @@ const MOOD_LABEL = {
   baik: 'Baik', biasa: 'Biasa', sensitif: 'Sensitif',
   mudah_marah: 'Mudah Marah', cemas: 'Cemas', depresi: 'Depresi'
 };
-const FLOW_LABEL = { ringan: '◆ Ringan', sedang: '◆◆ Sedang', deras: '◆◆◆ Deras' };
+const _DROP = `<svg width="14" height="16" viewBox="0 0 512 512" fill="none" stroke="currentColor" stroke-miterlimit="10" style="vertical-align:middle;display:inline-block"><path d="M400,320c0,88.37-55.63,144-144,144S112,408.37,112,320c0-94.83,103.23-222.85,134.89-259.88a12,12,0,0,1,18.23,0C296.77,97.15,400,225.17,400,320Z" stroke-width="48" vector-effect="non-scaling-stroke"/><path d="M344,328a72,72,0,0,1-72,72" stroke-linecap="round" stroke-linejoin="round" stroke-width="48" vector-effect="non-scaling-stroke"/></svg>`;
+const FLOW_LABEL = {
+  ringan: `<span class="flow-indicator flow-ringan" title="Ringan">${_DROP}</span>`,
+  sedang: `<span class="flow-indicator flow-sedang" title="Sedang">${_DROP}${_DROP}</span>`,
+  deras:  `<span class="flow-indicator flow-deras"  title="Deras">${_DROP}${_DROP}${_DROP}</span>`
+};
 
 let _selectedSymptoms = [];
 
@@ -1436,7 +1618,7 @@ function renderMenstruasi() {
   const tbody = document.getElementById('mens-table');
   if (tbody) {
     if (!data.length) {
-      tbody.innerHTML = `<tr><td colspan="8" style="text-align:center;color:var(--text3);padding:24px">Belum ada data siklus</td></tr>`;
+      tbody.innerHTML = `<tr><td colspan="8" style="text-align:center;width:100%;display:block;border:none;color:var(--text3);padding:24px">Belum ada data siklus</td></tr>`;
     } else {
       tbody.innerHTML = data.map((d, i) => {
         const dur = d.end ? (diffDays(d.start, d.end) + 1) + ' hari' : '—';
@@ -1467,7 +1649,7 @@ function renderMenstruasi() {
   const symEl = document.getElementById('mens-symptom-analysis');
   if (symEl) {
     if (!Object.keys(symsCount).length) {
-      symEl.innerHTML = '<span style="color:var(--text3);font-size:13px">Belum ada data gejala</span>';
+      symEl.innerHTML = emptyHTML('🌸', 'Belum ada data gejala');
     } else {
       symEl.innerHTML = Object.entries(symsCount)
         .sort((a,b)=>b[1]-a[1])
@@ -1965,10 +2147,12 @@ function editTarget(i) {
     <label style="display:block;font-size:12px;color:var(--text3);margin-bottom:4px">Deadline</label>
     <input id="em-t-deadline" type="date" value="${t.deadline||''}" style="width:100%;margin-bottom:12px">
     <label style="display:block;font-size:12px;color:var(--text3);margin-bottom:4px">Status</label>
-    <select id="em-t-status" style="width:100%">
+    <select id="em-t-status" style="width:100%;margin-bottom:12px">
       <option value="on_progress" ${t.status==='on_progress'?'selected':''}>On Progress</option>
       <option value="done" ${t.status==='done'?'selected':''}>Selesai</option>
-    </select>`, { type: 'target', index: i });
+    </select>
+    <label style="display:block;font-size:12px;color:var(--text3);margin-bottom:4px">Catatan / Deskripsi</label>
+    <textarea id="em-t-note" style="width:100%;min-height:80px">${escapeHTML(t.note||'')}</textarea>`, { type: 'target', index: i });
 }
 function _saveEditTarget(i) {
   const name = document.getElementById('em-t-name')?.value.trim();
@@ -1976,6 +2160,7 @@ function _saveEditTarget(i) {
   state.targets[i].name     = name;
   state.targets[i].deadline = document.getElementById('em-t-deadline')?.value || '';
   state.targets[i].status   = document.getElementById('em-t-status')?.value || 'on_progress';
+  state.targets[i].note     = document.getElementById('em-t-note')?.value.trim() || '';
   saveAndSync(); renderTargets(); updateDashboard();
   showToast('✓ Target berhasil diupdate'); closeEditModal();
 }
@@ -1985,13 +2170,24 @@ function editTodo(id) {
   // eslint-disable-next-line eqeqeq
   const t = state.todos.find(x => x.id == id);
   if (!t) return;
+  const priOpts = [
+    ['high','High'],['medium','Medium'],['low','Low']
+  ].map(([v,l]) => `<option value="${v}" ${(t.priority||'medium')===v?'selected':''}>${l}</option>`).join('');
+  const catOpts = [
+    ['','— Pilih —'],['Kerja','Kerja'],['Pribadi','Pribadi'],
+    ['Belajar','Belajar'],['Kesehatan','Kesehatan'],['Lainnya','Lainnya']
+  ].map(([v,l]) => `<option value="${v}" ${(t.category||'')===v?'selected':''}>${l}</option>`).join('');
   openEditModal('Edit Tugas', `
     <label style="display:block;font-size:12px;color:var(--text3);margin-bottom:4px">Teks Tugas</label>
     <input id="em-td-text" type="text" value="${escapeHTML(t.text)}" style="width:100%;margin-bottom:12px">
     <label style="display:block;font-size:12px;color:var(--text3);margin-bottom:4px">Tanggal</label>
     <input id="em-td-date" type="date" value="${t.dueDate||''}" style="width:100%;margin-bottom:12px">
     <label style="display:block;font-size:12px;color:var(--text3);margin-bottom:4px">Jam</label>
-    <input id="em-td-time" type="time" value="${t.dueTime||''}" style="width:100%">`, { type: 'todo', todoId: id });
+    <input id="em-td-time" type="time" value="${t.dueTime||''}" style="width:100%;margin-bottom:12px">
+    <label style="display:block;font-size:12px;color:var(--text3);margin-bottom:4px">Prioritas</label>
+    <select id="em-td-priority" style="width:100%;margin-bottom:12px">${priOpts}</select>
+    <label style="display:block;font-size:12px;color:var(--text3);margin-bottom:4px">Kategori</label>
+    <select id="em-td-category" style="width:100%">${catOpts}</select>`, { type: 'todo', todoId: id });
 }
 function _saveEditTodo(todoId) {
   const text = document.getElementById('em-td-text')?.value.trim();
@@ -1999,9 +2195,11 @@ function _saveEditTodo(todoId) {
   // eslint-disable-next-line eqeqeq
   const todo = state.todos.find(x => x.id == todoId);
   if (!todo) { showToast('⚠ Tugas tidak ditemukan'); return; }
-  todo.text    = text;
-  todo.dueDate = document.getElementById('em-td-date')?.value || '';
-  todo.dueTime = document.getElementById('em-td-time')?.value || '';
+  todo.text     = text;
+  todo.dueDate  = document.getElementById('em-td-date')?.value || '';
+  todo.dueTime  = document.getElementById('em-td-time')?.value || '';
+  todo.priority = document.getElementById('em-td-priority')?.value || 'medium';
+  todo.category = document.getElementById('em-td-category')?.value || '';
   saveAndSync(); renderTodo(); updateDashboard();
   showToast('✓ Tugas berhasil diupdate'); closeEditModal();
 }
@@ -2299,6 +2497,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
 // Navigasi
 Object.assign(window, {
+  fpChip,
   showPage, toggleTheme, toggleSidebar, closeSidebar, navBtn,
   quickJournal, quickHabit, quickTodo, quickLearning, quickEmosi, quickTarget,
 
@@ -2367,6 +2566,57 @@ Object.assign(window, {
 });
 
 /* ============================================================
+   FILTER PANEL CHIP — handler untuk chip filter di panel
+   ============================================================ */
+// Per-filter-group state for multi-group filtering
+const _filterState = {};
+
+function fpChip(btn, group, callbackName) {
+  const root = btn.closest('.fb-controls-row') || btn.closest('.filter-bar');
+  root.querySelectorAll(`[data-filter-group="${group}"]`).forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+
+  const value = btn.getAttribute('data-value');
+  _filterState[group] = value;
+
+  const fnMap = {
+    filterTargets:   () => filterTargets(),
+    filterTodos:     () => filterTodos(),
+    filterLearnings: () => filterLearnings(),
+    filterJournals:  () => filterJournals(),
+    sortTargets:     () => sortTargets(value),
+    sortTodos:       () => sortTodos(value),
+    sortLearnings:   () => sortLearnings(value),
+    sortJournals:    () => sortJournals(value),
+  };
+  const fn = fnMap[callbackName];
+  if (fn) fn();
+}
+
+/* ============================================================
+   FILTER PANEL TOGGLE (mobile)
+   ============================================================ */
+function toggleFilterPanel(btn) {
+  const bar = btn.closest('.filter-bar');
+  if (!bar) return;
+  const panel = bar.querySelector('.fb-controls-row');
+  if (!panel) return;
+  const isOpen = panel.classList.toggle('open');
+  btn.classList.toggle('active', isOpen);
+  // Close panel when clicking outside
+  if (isOpen) {
+    const close = (e) => {
+      if (!bar.contains(e.target)) {
+        panel.classList.remove('open');
+        btn.classList.remove('active');
+        document.removeEventListener('click', close, true);
+      }
+    };
+    setTimeout(() => document.addEventListener('click', close, true), 10);
+  }
+}
+
+/* ============================================================
    EVENT DELEGATION — menggantikan semua onclick di HTML.
    Extension browser tidak bisa inject ke addEventListener,
    hanya ke atribut onclick. Dengan delegation ini semua klik
@@ -2418,6 +2668,7 @@ const _ACTION_MAP = {
   'exportData()':       () => exportData(),
   'resetAllData()':     () => resetAllData(),
   'event.stopPropagation()': (_, e) => e && e.stopPropagation(),
+  'toggleFilterPanel(this)': (el) => toggleFilterPanel(el),
 
   // showPage calls
   "showPage('dashboard',this)":          (el) => showPage('dashboard', el),
@@ -2493,14 +2744,24 @@ document.addEventListener('click', function(e) {
       const fn2 = window[fnName];
       if (typeof fn2 === 'function') {
         try {
-          // Parse args: angka, string, atau 'this'
-          const args = argStr === '' ? [] : argStr.split(',').map(a => {
-            a = a.trim();
-            if (a === 'this') return el;
-            if (/^-?\d+$/.test(a)) return parseInt(a, 10);
-            if (/^['"]/.test(a)) return a.slice(1, -1);
-            return a;
-          });
+          // Parse args: handle quoted strings (may contain commas), numbers, 'this'
+          const args = argStr === '' ? [] : (function parseArgs(s) {
+            const result = []; let cur = ''; let inQ = false; let qChar = '';
+            for (let i = 0; i < s.length; i++) {
+              const c = s[i];
+              if (!inQ && (c === "'" || c === '"')) { inQ = true; qChar = c; }
+              else if (inQ && c === qChar) { inQ = false; }
+              else if (!inQ && c === ',') { result.push(cur.trim()); cur = ''; continue; }
+              else { cur += c; }
+            }
+            result.push(cur.trim());
+            return result.map(a => {
+              if (a === 'this') return el;
+              if (/^-?\d+$/.test(a)) return parseInt(a, 10);
+              if (/^['"].*['"]$/.test(a)) return a.slice(1, -1);
+              return a;
+            });
+          })(argStr);
           fn2(...args);
         } catch(err) {
           console.warn('[Trackify] dynamic action error:', action, err.message);
@@ -2539,3 +2800,582 @@ document.addEventListener('keydown', function(e) {
 
 // Beritahu HTML bahwa module sudah siap
 document.dispatchEvent(new CustomEvent('trackify-ready'));
+
+/* ============================================================
+   FILTER & SORT — Target
+   ============================================================ */
+
+let _targetSort = { key: null, dir: 1 };
+
+window.sortTargets = function(key) {
+  if (_targetSort.key === key) {
+    _targetSort.dir *= -1;
+  } else {
+    _targetSort.key = key;
+    _targetSort.dir = 1;
+  }
+  ['target-sort-btn','target-sort-name-btn'].forEach(id => {
+    const b = document.getElementById(id);
+    if (b) b.classList.remove('active','desc');
+  });
+  const activeId = key === 'deadline' ? 'target-sort-btn' : 'target-sort-name-btn';
+  const btn = document.getElementById(activeId);
+  if (btn) { btn.classList.add('active'); if (_targetSort.dir === -1) btn.classList.add('desc'); }
+  renderTargetsFiltered();
+};
+
+window.filterTargets = function() { renderTargetsFiltered(); };
+
+function renderTargetsFiltered() {
+  const tb   = document.getElementById('target-table');
+  const q    = (document.getElementById('target-search')?.value || '').toLowerCase();
+  const st   = _filterState['target-status'] || '';
+  const cnt  = document.getElementById('target-result-count');
+  if (!tb) return;
+
+  let list = state.targets.map((t, i) => ({ ...t, _origIdx: i }));
+
+  if (q)  list = list.filter(t => t.name.toLowerCase().includes(q) || (t.note||'').toLowerCase().includes(q));
+  if (st) list = list.filter(t => t.status === st);
+
+  if (_targetSort.key) {
+    list.sort((a, b) => {
+      let va = _targetSort.key === 'deadline' ? (a.deadline || '9999') : a.name.toLowerCase();
+      let vb = _targetSort.key === 'deadline' ? (b.deadline || '9999') : b.name.toLowerCase();
+      return va < vb ? -_targetSort.dir : va > vb ? _targetSort.dir : 0;
+    });
+  }
+
+  if (cnt) cnt.textContent = list.length ? `Menampilkan ${list.length} dari ${state.targets.length} target` : '';
+
+  if (!list.length) {
+    tb.innerHTML = `<tr><td colspan="6" style="text-align:center;border:none">${emptyHTML('🎯','Tidak ada target yang cocok.')}</td></tr>`;
+    return;
+  }
+
+  tb.innerHTML = list.map(t => {
+    const i    = t._origIdx;
+    const dl   = t.deadline ? new Date(t.deadline + 'T00:00:00') : null;
+    const days = dl ? Math.ceil((dl - new Date()) / 86_400_000) : null;
+    const prog = t.status === 'done' ? 100 : days !== null ? Math.max(0, Math.min(85, 100 - days * 2)) : 30;
+    const isDone = t.status === 'done';
+    const noteSnip = t.note ? escapeHTML(t.note.slice(0, 60)) + (t.note.length > 60 ? '…' : '') : '<span style="color:var(--text3)">—</span>';
+    return `<tr>
+      <td data-label="Target" style="font-weight:600">${escapeHTML(t.name)}</td>
+      <td data-label="Catatan" style="font-size:12px;color:var(--text2);max-width:160px">${noteSnip}</td>
+      <td data-label="Deadline" style="color:var(--text3);font-size:12px"><time datetime="${t.deadline||''}">${t.deadline||'—'}</time></td>
+      <td data-label="Status">
+        <button class="status-toggle-btn ${isDone ? 'status-done' : 'status-progress'}"
+                data-action="toggleTargetStatus(${i})"
+                aria-label="Klik untuk ubah status">${isDone ? '✓ Selesai' : 'Berjalan'}</button>
+      </td>
+      <td data-label="Progress" style="min-width:120px">
+        <div class="prog-label" aria-hidden="true"><span>${prog}%</span></div>
+        <div class="prog-bar" role="progressbar" aria-valuenow="${prog}" aria-valuemin="0" aria-valuemax="100">
+          <div class="prog-fill" style="width:${prog}%"></div>
+        </div>
+      </td>
+      <td data-label=""><div style="display:flex;gap:6px;align-items:center;">
+        <button class="edit-btn" data-action="editTarget(${i})" aria-label="Edit target"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg></button>
+        <button class="del-btn" data-action="delTarget(${i})" aria-label="Hapus target"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg></button>
+      </div></td>
+    </tr>`;
+  }).join('');
+  setTimeout(registerAllLongPress, 60);
+}
+
+// Override renderTargets to use filtered version
+const _origRenderTargets = renderTargets;
+renderTargets = function() {
+  renderTargetsFiltered();
+};
+
+/* ============================================================
+   FILTER & SORT — Todo
+   ============================================================ */
+
+let _todoSort = { key: 'created', dir: -1 };
+
+window.sortTodos = function(key) {
+  if (_todoSort.key === key) {
+    _todoSort.dir *= -1;
+  } else {
+    _todoSort.key = key;
+    _todoSort.dir = key === 'due' ? 1 : -1;
+  }
+  renderTodosFiltered();
+};
+
+window.filterTodos = function() { renderTodosFiltered(); };
+
+const _PRIORITY_ORDER = { high: 0, medium: 1, low: 2 };
+const _PRIORITY_LABEL = { high: 'High', medium: 'Medium', low: 'Low' };
+const _CAT_ICON = {
+  Kerja:     `<svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="7" width="20" height="14" rx="2"/><path d="M16 7V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v2"/></svg>`,
+  Pribadi:   `<svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>`,
+  Belajar:   `<svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg>`,
+  Kesehatan: `<svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg>`,
+  Lainnya:   `<svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/><circle cx="5" cy="12" r="1"/></svg>`,
+};
+
+function renderTodosFiltered() {
+  const el  = document.getElementById('todo-list');
+  const q   = (document.getElementById('todo-search')?.value || '').toLowerCase();
+  const st  = _filterState['todo-status']   || '';
+  const pri = _filterState['todo-priority'] || '';
+  const cat = _filterState['todo-category'] || '';
+  const cnt = document.getElementById('todo-result-count');
+  if (!el) return;
+
+  let list = [...state.todos];
+
+  if (q)   list = list.filter(t => t.text.toLowerCase().includes(q));
+  if (st === 'done')    list = list.filter(t => t.done);
+  if (st === 'pending') list = list.filter(t => !t.done);
+  if (st === 'overdue') list = list.filter(t => t.dueDate && !t.done && t.dueDate < today());
+  if (pri) list = list.filter(t => (t.priority || 'medium') === pri);
+  if (cat) list = list.filter(t => t.category === cat);
+
+  if (_todoSort.key === 'due') {
+    list.sort((a, b) => {
+      const va = a.dueDate || '9999-99-99';
+      const vb = b.dueDate || '9999-99-99';
+      return va < vb ? -_todoSort.dir : va > vb ? _todoSort.dir : 0;
+    });
+  } else if (_todoSort.key === 'priority') {
+    list.sort((a, b) => (_PRIORITY_ORDER[a.priority||'medium'] - _PRIORITY_ORDER[b.priority||'medium']) * _todoSort.dir);
+  } else {
+    list.sort((a, b) => {
+      const va = a.createdAt || '';
+      const vb = b.createdAt || '';
+      return va < vb ? -_todoSort.dir : va > vb ? _todoSort.dir : 0;
+    });
+  }
+
+  if (cnt) cnt.textContent = list.length !== state.todos.length
+    ? `Menampilkan ${list.length} dari ${state.todos.length} tugas`
+    : '';
+
+  if (!list.length) {
+    el.setAttribute('role', 'status');
+    el.innerHTML = emptyHTML('🗒️', st || q || pri || cat ? 'Tidak ada tugas yang cocok.' : 'Belum ada tugas. Tambahkan sekarang!');
+    return;
+  }
+
+  el.setAttribute('role', 'list');
+  el.innerHTML = list.map(t => {
+    const p = t.priority || 'medium';
+    const priColor = p === 'high' ? 'var(--red)' : p === 'low' ? 'var(--green)' : 'var(--amber)';
+    const priIcon  = p === 'high'
+      ? `<svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="17 11 12 6 7 11"/><polyline points="17 18 12 13 7 18"/></svg>`
+      : p === 'low'
+      ? `<svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="17 6 12 11 7 6"/><polyline points="17 13 12 18 7 13"/></svg>`
+      : `<svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="12" x2="19" y2="12"/></svg>`;
+
+    let dueMeta = '';
+    if (t.dueDate || t.dueTime) {
+      const isOverdue = t.dueDate && !t.done && t.dueDate < today();
+      dueMeta = `<span class="todo-due ${isOverdue ? 'overdue' : ''}" aria-label="Jatuh tempo">
+        <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-1px;margin-right:2px"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>${t.dueDate||''}${t.dueDate && t.dueTime ? ' · ' : ''}${t.dueTime||''}
+      </span>`;
+    }
+
+    const catBadge = t.category ? `<span class="todo-cat-badge">${_CAT_ICON[t.category]||''} ${escapeHTML(t.category)}</span>` : '';
+
+    return `<div class="todo-item todo-pri-${p}" role="listitem">
+      <button class="todo-check ${t.done?'done':''}"
+              data-action="toggleTodoById(${t.id})"
+              aria-label="${t.done?'Tandai belum selesai':'Tandai selesai'}: ${escapeHTML(t.text)}"
+              aria-pressed="${t.done}">${t.done ? '✓' : ''}</button>
+      <div class="todo-content">
+        <span class="todo-text ${t.done?'done':''}">${escapeHTML(t.text)}</span>
+        <div class="todo-meta-row">
+          <span class="todo-pri-badge" style="color:${priColor}">${priIcon} ${_PRIORITY_LABEL[p]}</span>
+          ${catBadge}
+          ${dueMeta}
+        </div>
+      </div>
+      <button class="edit-btn" data-action="editTodo(${t.id})" aria-label="Edit tugas"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg></button>
+      <button class="del-btn" data-action="delTodoById(${t.id})" aria-label="Hapus tugas"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg></button>
+    </div>`;
+  }).join('');
+  setTimeout(registerAllLongPress, 60);
+}
+
+// Override renderTodo
+renderTodo = function() { renderTodosFiltered(); };
+
+/* ============================================================
+   FILTER & SORT — Journal
+   ============================================================ */
+
+let _journalSortDir = -1; // -1 = terbaru dulu
+
+window.sortJournals = function() {
+  _journalSortDir *= -1;
+  const btn = document.getElementById('journal-sort-btn');
+  if (btn) {
+    if (_journalSortDir === 1) btn.classList.add('desc'); else btn.classList.remove('desc');
+  }
+  renderJournalsFiltered();
+};
+
+window.filterJournals = function() { renderJournalsFiltered(); };
+
+function renderJournalsFiltered() {
+  const el   = document.getElementById('journal-list');
+  const q    = (document.getElementById('journal-search')?.value || '').toLowerCase();
+  const mood = document.getElementById('journal-filter-mood')?.value || '';
+  const cnt  = document.getElementById('journal-result-count');
+  if (!el) return;
+
+  let list = state.journals.map((j, i) => ({ ...j, _origIdx: i }));
+
+  if (q)    list = list.filter(j => j.did.toLowerCase().includes(q) || (j.good||'').toLowerCase().includes(q));
+  if (mood) list = list.filter(j => j.mood === mood);
+
+  list.sort((a, b) => (a.date < b.date ? 1 : a.date > b.date ? -1 : 0) * (_journalSortDir === -1 ? 1 : -1));
+
+  if (cnt) cnt.textContent = list.length !== state.journals.length
+    ? `Menampilkan ${list.length} dari ${state.journals.length} jurnal`
+    : '';
+
+  if (!list.length) { el.innerHTML = emptyHTML('📖', mood||q ? 'Tidak ada jurnal yang cocok.' : 'Belum ada jurnal.'); return; }
+
+  el.innerHTML = list.map(j => {
+    const i = j._origIdx;
+    return `<article class="journal-entry">
+      <div class="journal-meta">
+        <span class="journal-date"><svg width="11" height="11" style="vertical-align:-1px;margin-right:4px;color:var(--text3)"><use href="#icon-calendar"/></svg><time datetime="${j.date}">${j.date}</time></span>
+        <div style="display:flex;align-items:center;gap:8px">
+          ${j.mood ? `<span class="badge badge-purple">${escapeHTML(j.mood)}</span>` : ''}
+          <button class="edit-btn" data-action="editJournal(${i})" aria-label="Edit jurnal ${j.date}"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg></button>
+          <button class="del-btn" data-action="delJournal(${i})" aria-label="Hapus jurnal ${j.date}"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg></button>
+        </div>
+      </div>
+      <div style="font-size:13px;color:var(--text2);line-height:1.6">
+        ${escapeHTML(j.did.slice(0,150))}${j.did.length>150?'…':''}
+      </div>
+    </article>`;
+  }).join('');
+  setTimeout(registerAllLongPress, 60);
+}
+
+// Override renderJournals
+renderJournals = function() { renderJournalsFiltered(); };
+
+/* ============================================================
+   FILTER & SORT — Learning
+   ============================================================ */
+
+let _learningSortDir = -1;
+
+window.sortLearnings = function() {
+  _learningSortDir *= -1;
+  const btn = document.getElementById('learning-sort-btn');
+  if (btn) {
+    if (_learningSortDir === 1) btn.classList.add('desc'); else btn.classList.remove('desc');
+  }
+  renderLearningsFiltered();
+};
+
+window.filterLearnings = function() { renderLearningsFiltered(); };
+
+function renderLearningsFiltered() {
+  const el  = document.getElementById('learning-list');
+  const q   = (document.getElementById('learning-search')?.value || '').toLowerCase();
+  const cat = document.getElementById('learning-filter-cat')?.value || '';
+  const cnt = document.getElementById('learning-result-count');
+  if (!el) return;
+
+  let list = state.learnings.map((l, i) => ({ ...l, _origIdx: i }));
+
+  if (q)   list = list.filter(l => l.subject.toLowerCase().includes(q) || (l.what||'').toLowerCase().includes(q));
+  if (cat) list = list.filter(l => l.cat === cat);
+
+  list.sort((a, b) => (a.date < b.date ? 1 : a.date > b.date ? -1 : 0) * (_learningSortDir === -1 ? 1 : -1));
+
+  if (cnt) cnt.textContent = list.length !== state.learnings.length
+    ? `Menampilkan ${list.length} dari ${state.learnings.length} sesi`
+    : '';
+
+  if (!list.length) { el.innerHTML = emptyHTML('📖', cat||q ? 'Tidak ada sesi yang cocok.' : 'Belum ada sesi belajar.'); return; }
+
+  el.innerHTML = list.map(l => {
+    const i = l._origIdx;
+    return `<article class="learning-entry">
+      <div class="learning-entry-header">
+        <span class="learning-date"><svg width="11" height="11" style="vertical-align:-1px;margin-right:4px;color:var(--text3)"><use href="#icon-calendar"/></svg><time datetime="${l.date}">${l.date}</time></span>
+        <div style="display:flex;align-items:center;gap:8px">
+          ${l.cat      ? `<span class="learning-tag">${escapeHTML(l.cat)}</span>` : ''}
+          ${l.duration ? `<span class="badge badge-blue"><svg width="11" height="11" style="vertical-align:-1px;margin-right:3px"><use href="#icon-calendar"/></svg>${escapeHTML(l.duration)} mnt</span>` : ''}
+          <button class="edit-btn" data-action="editLearning(${i})" aria-label="Edit sesi"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg></button>
+          <button class="del-btn" data-action="delLearning(${i})" aria-label="Hapus sesi"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg></button>
+        </div>
+      </div>
+      <div class="learning-subject">${escapeHTML(l.subject)}</div>
+      <div style="font-size:13px;color:var(--text2);line-height:1.6;margin-top:4px">
+        ${escapeHTML(l.what.slice(0,180))}${l.what.length>180?'…':''}
+      </div>
+      ${l.insight ? `<div class="learning-insight">💡 ${escapeHTML(l.insight.slice(0,160))}${l.insight.length>160?'…':''}</div>` : ''}
+    </article>`;
+  }).join('');
+  setTimeout(registerAllLongPress, 60);
+}
+
+// Override renderLearnings
+renderLearnings = function() { renderLearningsFiltered(); };
+
+/* ============================================================
+   HABIT STATISTICS — Streak per-habit, Completion Rate, Heatmap
+   ============================================================ */
+
+/**
+ * Hitung streak berturut-turut untuk habit index hi.
+ * Iterasi mundur dari hari ini; streak berhenti jika ada hari
+ * yang 'none' (tidak tercatat done) — 'skip' tidak memutus streak
+ * tapi juga tidak menambah.
+ */
+function calcHabitStreak(hi) {
+  let streak = 0;
+  let d = new Date();
+  for (let i = 0; i < 365; i++) {
+    const dateStr = d.toISOString().slice(0, 10);
+    const val = state.habitData[`${dateStr}_${hi}`];
+    if (val === 'done') {
+      streak++;
+    } else if (val === 'skip') {
+      // skip tidak memutus, tidak menambah — lanjut
+    } else {
+      // none atau tidak ada — putus streak (kecuali hari ini belum diisi)
+      if (i === 0) { d.setDate(d.getDate() - 1); continue; }
+      break;
+    }
+    d.setDate(d.getDate() - 1);
+  }
+  return streak;
+}
+
+/**
+ * Hitung completion rate (%) untuk habit index hi
+ * berdasarkan semua tanggal yang ada di habitRows.
+ */
+function calcHabitRate(hi) {
+  const total = habitRows.length;
+  if (!total) return 0;
+  const done = habitRows.filter(row => state.habitData[`${row}_${hi}`] === 'done').length;
+  return Math.round(done / total * 100);
+}
+
+/** Render kartu statistik per-habit */
+function renderHabitStatCards() {
+  const el = document.getElementById('habit-stat-cards');
+  if (!el) return;
+  if (!state.habits.length) { el.innerHTML = ''; return; }
+
+  el.innerHTML = state.habits.map((name, hi) => {
+    const streak   = calcHabitStreak(hi);
+    const rate     = calcHabitRate(hi);
+    const todayVal = state.habitData[`${today()}_${hi}`] || 'none';
+    const todayIcon = todayVal === 'done'
+      ? `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="var(--green)" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>`
+      : todayVal === 'skip'
+      ? `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="var(--red)" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>`
+      : `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="var(--text3)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>`;
+    const todayColor = todayVal === 'done' ? 'var(--green)' : todayVal === 'skip' ? 'var(--red)' : 'var(--text3)';
+    const todayLabel = todayVal === 'done' ? 'Selesai' : todayVal === 'skip' ? 'Skip' : 'Belum';
+    const barColor = rate >= 70 ? 'var(--green)' : rate >= 40 ? 'var(--amber)' : 'var(--red)';
+    return `<div class="habit-stat-card">
+      <div class="habit-stat-name" title="${escapeHTML(name)}">${escapeHTML(name)}</div>
+      <div class="habit-stat-row">
+        <div class="habit-stat-item">
+          <div class="habit-stat-num" style="color:var(--amber)">${streak}</div>
+          <div class="habit-stat-lbl">
+            <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/></svg>
+            Streak
+          </div>
+        </div>
+        <div class="habit-stat-item">
+          <div class="habit-stat-num" style="color:${barColor}">${rate}%</div>
+          <div class="habit-stat-lbl">
+            <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="22 11.08 12 2 2 11.08"/><path d="M9 20h6M12 12v8"/></svg>
+            Rate
+          </div>
+        </div>
+        <div class="habit-stat-item">
+          <div class="habit-stat-num" style="color:${todayColor};font-size:16px;line-height:1.4">${todayIcon}</div>
+          <div class="habit-stat-lbl" style="color:${todayColor}">${todayLabel}</div>
+        </div>
+      </div>
+      <div>
+        <div style="display:flex;justify-content:space-between;font-size:10px;color:var(--text3);margin-bottom:3px">
+          <span>Completion Rate</span><span style="font-weight:700;color:${barColor}">${rate}%</span>
+        </div>
+        <div style="height:5px;background:var(--bg4);border-radius:99px;overflow:hidden">
+          <div style="height:100%;width:${rate}%;background:${barColor};border-radius:99px;transition:width .5s ease"></div>
+        </div>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+/** Populate heatmap habit selector */
+function populateHeatmapSelect() {
+  const sel = document.getElementById('heatmap-habit-select');
+  if (!sel) return;
+  const prev = sel.value;
+  sel.innerHTML = state.habits.map((name, hi) =>
+    `<option value="${hi}" ${hi == prev ? 'selected' : ''}>${escapeHTML(name)}</option>`
+  ).join('');
+}
+
+/** Render heatmap GitHub-style untuk 365 hari terakhir */
+window.renderHeatmap = function() {
+  const gridEl = document.getElementById('heatmap-grid');
+  if (!gridEl) return;
+
+  const sel = document.getElementById('heatmap-habit-select');
+  const hi  = sel ? parseInt(sel.value, 10) : 0;
+  if (isNaN(hi) || hi < 0 || hi >= state.habits.length) {
+    gridEl.innerHTML = '';
+    return;
+  }
+
+  const td = today();
+
+  // Build 365-day map  
+  const dateMap = {};
+  const endDate   = new Date(td + 'T00:00:00');
+  const startDate = new Date(endDate);
+  startDate.setDate(startDate.getDate() - 364);
+
+  let d = new Date(startDate);
+  while (d <= endDate) {
+    const ds = d.toISOString().slice(0, 10);
+    dateMap[ds] = state.habitData[`${ds}_${hi}`] || 'none';
+    d.setDate(d.getDate() + 1);
+  }
+
+  // Group by week (column = week, row = day of week Mon=0..Sun=6)
+  // Find first Monday on or before startDate
+  const start = new Date(startDate);
+  const dow = start.getDay(); // 0=Sun
+  const offsetToMon = (dow === 0) ? -6 : 1 - dow;
+  start.setDate(start.getDate() + offsetToMon);
+
+  const MONTHS = ['Jan','Feb','Mar','Apr','Mei','Jun','Jul','Agu','Sep','Okt','Nov','Des'];
+
+  const weeks = [];
+  let cur = new Date(start);
+  while (cur <= endDate) {
+    const week = [];
+    for (let day = 0; day < 7; day++) {
+      const ds = cur.toISOString().slice(0, 10);
+      week.push({ date: ds, val: dateMap[ds] || 'none', future: ds > td });
+      cur.setDate(cur.getDate() + 1);
+    }
+    weeks.push(week);
+  }
+
+  // Build HTML
+  let html = '';
+  let lastMonth = -1;
+  weeks.forEach(week => {
+    const firstValid = week.find(c => c.date >= startDate.toISOString().slice(0,10) && !c.future);
+    const mon = firstValid ? new Date(firstValid.date + 'T00:00:00').getMonth() : -1;
+    const label = (mon !== -1 && mon !== lastMonth) ? MONTHS[mon] : '';
+    if (mon !== -1 && mon !== lastMonth) lastMonth = mon;
+
+    html += `<div class="heatmap-col">
+      <div class="heatmap-col-label">${label}</div>
+      ${week.map(cell => {
+        if (cell.future || cell.date < startDate.toISOString().slice(0,10)) {
+          return `<div class="heatmap-cell" style="opacity:0;pointer-events:none"></div>`;
+        }
+        const isToday = cell.date === td;
+        // For today, show done/skip styling but also outline via CSS class
+        let displayVal = cell.val !== 'none' ? cell.val : (isToday ? 'today' : '');
+        const valAttr = displayVal ? `data-val="${displayVal}"` : '';
+        return `<div class="heatmap-cell"
+          ${valAttr}
+          data-date="${cell.date}"
+          data-status="${cell.val}"
+          role="gridcell"
+          aria-label="${cell.date}: ${cell.val === 'done' ? 'Selesai' : cell.val === 'skip' ? 'Dilewati' : 'Kosong'}"
+          tabindex="0"></div>`;
+      }).join('')}
+    </div>`;
+  });
+
+  gridEl.innerHTML = html;
+  initHeatmapTooltip();
+};
+
+/** Tooltip hover untuk heatmap cells */
+function initHeatmapTooltip() {
+  const tooltip = document.getElementById('heatmap-tooltip');
+  if (!tooltip) return;
+
+  document.querySelectorAll('.heatmap-cell[data-date]').forEach(cell => {
+    cell.addEventListener('mouseenter', (e) => {
+      const date   = cell.dataset.date;
+      const status = cell.dataset.status;
+      const label  = status === 'done' ? '✓ Selesai' : status === 'skip' ? '✕ Dilewati' : '— Kosong';
+      tooltip.textContent = `${date}  ${label}`;
+      tooltip.classList.add('show');
+      tooltip.setAttribute('aria-hidden', 'false');
+    });
+    cell.addEventListener('mousemove', (e) => {
+      tooltip.style.left = (e.clientX + 12) + 'px';
+      tooltip.style.top  = (e.clientY - 28) + 'px';
+    });
+    cell.addEventListener('mouseleave', () => {
+      tooltip.classList.remove('show');
+      tooltip.setAttribute('aria-hidden', 'true');
+    });
+    // Keyboard support
+    cell.addEventListener('focus', (e) => {
+      const date   = cell.dataset.date;
+      const status = cell.dataset.status;
+      const label  = status === 'done' ? '✓ Selesai' : status === 'skip' ? '✕ Dilewati' : '— Kosong';
+      tooltip.textContent = `${date}  ${label}`;
+      tooltip.classList.add('show');
+      const rect = cell.getBoundingClientRect();
+      tooltip.style.left = (rect.right + 6) + 'px';
+      tooltip.style.top  = (rect.top - 4) + 'px';
+    });
+    cell.addEventListener('blur', () => tooltip.classList.remove('show'));
+  });
+}
+
+/** Render seluruh habit stats section */
+function renderHabitStats() {
+  const card = document.getElementById('habit-stats-card');
+  if (!card) return;
+
+  if (!state.habits.length) {
+    card.style.display = 'none';
+    return;
+  }
+  card.style.display = '';
+  renderHabitStatCards();
+  populateHeatmapSelect();
+  renderHeatmap();
+}
+
+// Hook into renderHabit to also update stats
+const _origRenderHabit = renderHabit;
+renderHabit = function() {
+  _origRenderHabit();
+  renderHabitStats();
+};
+
+// Wire oninput/onchange for filter inputs via input event listener extension
+document.addEventListener('input', function(e) {
+  const handler = e.target.getAttribute('data-oninput');
+  if (handler && handler !== 'runSearch' && window[handler]) window[handler]();
+});
+document.addEventListener('change', function(e) {
+  const handler = e.target.getAttribute('data-onchange');
+  if (handler && e.target.id !== 'import-file-input' && window[handler]) window[handler]();
+});

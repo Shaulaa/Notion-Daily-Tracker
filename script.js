@@ -1,35 +1,8 @@
 /**
- * ============================================================
- * Trackify — Personal Dashboard  |  script.js
- * ============================================================
+ * Trackify — Personal Dashboard | script.js
  *
- * ARSITEKTUR SINGKAT
- * ------------------
- *  1. Storage Layer   → StorageManager  : baca/tulis localStorage
- *  2. State Layer     → state           : satu objek data utama aplikasi
- *  3. Persistence     → saveState()     : serialisasi state ke localStorage
- *  4. Render Layer    → render*()       : update DOM dari state
- *  5. Event Handlers  → add*(), save*() : mutasi state lalu render + save
- *  6. UI Helpers      → showToast(),
- *                       showPage(), dll : navigasi & feedback
- *
- * ALUR DATA
- * ---------
- *  User action → handler → mutasi state → saveState() → render DOM
- *  Halaman dimuat → StorageManager.load() → hydrate state → render DOM
- *
- * STORAGE
- * -------
- *  localStorage key tunggal: "Trackify_v1"
- *  Seluruh state di-serialize sebagai JSON.
- *  Versi key memudahkan migrasi data di masa depan.
- *
- * KONVENSI NAMA
- * -------------
- *  render*()  → hanya baca state, update DOM
- *  save*()    → validasi input, mutasi state, panggil saveState + render
- *  update*()  → hitung ulang tampilan agregat (dashboard, stats)
- * ============================================================
+ * Arsitektur: StorageManager → state → saveState() → render*() DOM
+ * Storage key: "Trackify_v1" (JSON di localStorage)
  */
 
 'use strict';
@@ -421,6 +394,7 @@ function applyTheme(theme) {
   state.theme = theme;
   document.documentElement.setAttribute('data-theme', theme);
   updateThemeLogos(theme);
+  updateDashboardHeroArtwork(theme);
   const iconSvg = theme === 'dark'
     ? '<svg width="16" height="16"><use href="#icon-moon"/></svg>'
     : '<svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24"><circle cx="12" cy="12" r="4"/><line x1="12" y1="2" x2="12" y2="4"/><line x1="12" y1="20" x2="12" y2="22"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="2" y1="12" x2="4" y2="12"/><line x1="20" y1="12" x2="22" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>';
@@ -430,6 +404,35 @@ function applyTheme(theme) {
     btn.innerHTML = iconSvg;
     btn.setAttribute('aria-label', `Ganti ke ${label}`);
   });
+}
+
+function updateDashboardHeroArtwork(theme) {
+  const heroArt = document.querySelector('.dashboard-hero__art');
+  if (!heroArt) return;
+
+  const lightSrc = heroArt.dataset.lightSrc || heroArt.getAttribute('src') || '';
+  const darkSrc  = heroArt.dataset.darkSrc  || lightSrc;
+  const newSrc   = theme === 'dark' ? darkSrc : lightSrc;
+
+  // Jika sudah sama, tidak perlu fade
+  if (heroArt.getAttribute('src') === newSrc) return;
+
+  // Cross-fade: fade out → ganti src → fade in
+  heroArt.classList.add('is-fading-out');
+  const FADE_DURATION = 280; // ms — sesuai transition CSS 0.55s/2
+
+  const doSwap = () => {
+    heroArt.src = newSrc;
+    // Tunggu browser load src baru (penting untuk non-cache)
+    heroArt.decode
+      ? heroArt.decode().catch(() => {}).finally(() => {
+          heroArt.classList.remove('is-fading-out');
+        })
+      : setTimeout(() => heroArt.classList.remove('is-fading-out'), 60);
+  };
+
+  // Mulai swap setelah fade-out selesai
+  setTimeout(doSwap, FADE_DURATION);
 }
 
 function updateThemeLogos(theme) {
@@ -498,41 +501,11 @@ function _initHistory() {
 }
 
 function _showPageInternal(id) {
-  if (!VALID_PAGES.has(id)) return;
-  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
-  document.querySelectorAll('.nav-btn').forEach(b => {
-    b.classList.remove('active');
-    b.setAttribute('aria-current', 'false');
-  });
-  const pageEl = document.getElementById('page-' + id);
-  if (!pageEl) return;
-  pageEl.classList.add('active');
-
-  // Sync active nav btn
-  document.querySelectorAll('.nav-btn').forEach(b => {
-    const action = b.getAttribute('data-action') || '';
-    if (action.includes(`'${id}'`)) {
-      b.classList.add('active');
-      b.setAttribute('aria-current', 'page');
-    }
-  });
-
-  if (id === 'dashboard') updateDashboard();
-  if (id === 'reward')    updateRewardPage();
-  if (id === 'learning')  updateLearningStats();
-  if (id === 'menstruasi') renderMenstruasi();
-  if (id === 'settings')  updateSettingsPage();
-
-  closeSidebar();
-  const title = pageEl.querySelector('.page-title');
-  if (title) { title.setAttribute('tabindex', '-1'); title.focus(); }
+  showPage(id, null, true);
 }
 
-function showPage(id, btn) {
-  if (!VALID_PAGES.has(id)) {
-    console.warn('[Trackify] ID halaman tidak valid:', id);
-    return;
-  }
+function showPage(id, btn, _fromHistory = false) {
+  if (!VALID_PAGES.has(id)) return;
   _initHistory();
 
   document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
@@ -542,23 +515,32 @@ function showPage(id, btn) {
   });
 
   const pageEl = document.getElementById('page-' + id);
-  if (!pageEl) { console.error('[Trackify] Elemen tidak ditemukan: page-' + id); return; }
+  if (!pageEl) return;
   pageEl.classList.add('active');
 
-  if (btn) { btn.classList.add('active'); btn.setAttribute('aria-current', 'page'); }
+  if (btn) {
+    btn.classList.add('active');
+    btn.setAttribute('aria-current', 'page');
+  } else {
+    // Sync active nav btn from action string
+    document.querySelectorAll('.nav-btn').forEach(b => {
+      const action = b.getAttribute('data-action') || '';
+      if (action.includes(`'${id}'`)) {
+        b.classList.add('active');
+        b.setAttribute('aria-current', 'page');
+      }
+    });
+  }
 
-  if (id === 'dashboard') updateDashboard();
-  if (id === 'reward')    updateRewardPage();
-  if (id === 'learning')  updateLearningStats();
+  if (id === 'dashboard')  updateDashboard();
+  if (id === 'reward')     updateRewardPage();
+  if (id === 'learning')   updateLearningStats();
   if (id === 'menstruasi') renderMenstruasi();
-  if (id === 'settings')  updateSettingsPage();
+  if (id === 'settings')   updateSettingsPage();
 
-  // Push ke history agar back button tidak keluar dari app
-  history.pushState({ page: id }, '', location.href);
+  if (!_fromHistory) history.pushState({ page: id }, '', location.href);
 
   closeSidebar();
-
-  // Pindahkan fokus ke judul halaman (aksesibilitas)
   const title = pageEl.querySelector('.page-title');
   if (title) { title.setAttribute('tabindex', '-1'); title.focus(); }
 }
@@ -634,7 +616,7 @@ function showToast(msg, ms = 2600) {
 }
 
 // Modal reward
-function showRewardModal(iconId, _unused, title, desc) {
+function showRewardModal(iconId, title, desc) {
   const bg = document.getElementById('reward-modal-bg');
   if (!bg) return;
   const rmIcon = document.getElementById('rm-icon');
@@ -711,10 +693,92 @@ function escapeHTML(str) {
    7. DASHBOARD
    ============================================================ */
 
+/* ── Daily quotes pool (rotates by date seed) ── */
+const DAILY_QUOTES = [
+  { text: 'Progress yang pelan tetap membawa kita maju, selama kita terus kembali ke hal-hal yang penting.', author: 'Trackify Reminder' },
+  { text: 'Hari yang baik dimulai dari satu langkah kecil yang konsisten.', author: 'Trackify Reminder' },
+  { text: 'Kamu tidak harus sempurna lanjutkan saja pelan-pelan, yang penting terus maju.', author: 'Trackify Reminder' },
+  { text: 'Setiap kebiasaan kecil yang dijaga adalah investasi terbaik untuk dirimu.', author: 'Trackify Reminder' },
+  { text: "It does not matter how slowly you go as long as you do not stop.", author: 'Confucius' },
+  { text: 'Small steps every day lead to big changes over time.', author: 'Trackify Reminder' },
+  { text: 'The secret of getting ahead is getting started.', author: 'Mark Twain' },
+  { text: 'Discipline is choosing between what you want now and what you want most.', author: 'Abraham Lincoln' },
+  { text: 'Konsistensi adalah jembatan antara impian dan pencapaian.', author: 'Trackify Reminder' },
+  { text: 'Fokus bukan pada seberapa jauh kamu harus pergi, tapi seberapa jauh kamu sudah melangkah.', author: 'Trackify Reminder' },
+  { text: 'You are allowed to be both a masterpiece and a work in progress.', author: 'Sophia Bush' },
+  { text: 'Action is the foundational key to all success.', author: 'Pablo Picasso' },
+  { text: 'Setiap pagi adalah kesempatan baru untuk menjadi versi terbaik dirimu.', author: 'Trackify Reminder' },
+  { text: 'Don\'t watch the clock; do what it does. Keep going.', author: 'Sam Levenson' },
+  { text: 'Mulailah dari mana kamu berada, gunakan apa yang kamu punya.', author: 'Arthur Ashe' },
+  { text: 'Keberhasilan bukan tentang kecepatan, tapi tentang arah yang tepat.', author: 'Trackify Reminder' },
+  { text: 'We are what we repeatedly do. Excellence, then, is not an act, but a habit.', author: 'Aristotle' },
+  { text: 'Satu hari yang produktif lebih bermakna dari seribu rencana yang tidak dijalankan.', author: 'Trackify Reminder' },
+  { text: 'Believe you can and you\'re halfway there.', author: 'Theodore Roosevelt' },
+  { text: 'Jaga prosesnya dan hasilnya akan mengikuti dengan sendirinya.', author: 'Trackify Reminder' },
+  { text: 'The only way to do great work is to love what you do.', author: 'Steve Jobs' },
+  { text: 'Kelelahan itu wajar, tapi berhenti selamanya itu pilihan. Ambil istirahat, lalu lanjutkan.', author: 'Trackify Reminder' },
+  { text: 'Growth is not linear. Trust the process.', author: 'Trackify Reminder' },
+  { text: 'Setiap malam yang kamu akhiri dengan syukur adalah fondasi hari esok yang lebih baik.', author: 'Trackify Reminder' },
+  { text: 'Be the energy you want to attract.', author: 'Trackify Reminder' },
+  { text: 'Kamu lebih kuat dari yang kamu kira, dan lebih dekat dari yang kamu rasa.', author: 'Trackify Reminder' },
+  { text: 'Habits are the compound interest of self-improvement.', author: 'James Clear' },
+  { text: 'Tidak ada hasil besar tanpa usaha kecil yang diulang setiap hari.', author: 'Trackify Reminder' },
+  { text: 'Rest when you\'re weary. Refresh and renew yourself.', author: 'Trackify Reminder' },
+  { text: 'Satu langkah maju setiap hari, dan kamu tidak akan mengenali dirimu setahun lagi.', author: 'Trackify Reminder' },
+];
+
+function getDailyQuote() {
+  const now = new Date();
+  // Seed: YYYYMMDD — changes daily
+  const seed = now.getFullYear() * 10000 + (now.getMonth() + 1) * 100 + now.getDate();
+  const idx = seed % DAILY_QUOTES.length;
+  return DAILY_QUOTES[idx];
+}
+
 function renderDashboardDate() {
   const el = document.getElementById('dash-date-sub');
-  if (el) el.textContent = new Date().toLocaleDateString('id-ID',
+  const now = new Date();
+  if (el) el.textContent = now.toLocaleDateString('id-ID',
     { weekday:'long', year:'numeric', month:'long', day:'numeric' });
+
+  // Time-based greeting
+  const hour = now.getHours();
+  let greeting, encouragement;
+  if (hour >= 5 && hour < 12) {
+    greeting = 'Good morning,';
+    encouragement = 'Mulai harimu dengan penuh semangat. Setiap langkah kecil yang kamu ambil tetap berarti.';
+  } else if (hour >= 12 && hour < 15) {
+    greeting = 'Good afternoon,';
+    encouragement = 'Tetap fokus dan energik. Masih ada setengah hari lagi untuk bergerak.';
+  } else if (hour >= 15 && hour < 18) {
+    greeting = 'Good evening,';
+    encouragement = 'Sore yang produktif adalah bekal malam yang tenang.';
+  } else {
+    greeting = 'Good night,';
+    encouragement = 'Istirahat yang baik adalah bagian dari progres. Selamat beristirahat.';
+  }
+
+  const currentUser = getCurrentUser();
+  const firstName = currentUser?.displayName
+    ? currentUser.displayName.trim().split(/\s+/)[0]
+    : '';
+
+  const greetingText = document.getElementById('dash-greeting-text');
+  if (greetingText) {
+    greetingText.textContent = firstName ? `${greeting}, ${firstName}` : `${greeting}`;
+  }
+
+  const encouragementText = document.getElementById('dash-encouragement-text');
+  if (encouragementText) {
+    encouragementText.textContent = encouragement;
+  }
+
+  // Daily quote rotation
+  const quote = getDailyQuote();
+  const quoteTextEl = document.querySelector('.dashboard-quote-card__text');
+  const quoteAuthorEl = document.querySelector('.dashboard-quote-card__author');
+  if (quoteTextEl) quoteTextEl.textContent = quote.text;
+  if (quoteAuthorEl) quoteAuthorEl.textContent = quote.author;
 }
 
 function updateDashboard() {
@@ -1255,9 +1319,8 @@ function addTodo() {
   saveAndSync(); renderTodo(); updateDashboard(); showToast('✓ Tugas ditambahkan');
 }
 
-// Alias untuk kompatibilitas event handler di HTML yang menggunakan index
-function toggleTodo(i) { if (state.todos[i]) toggleTodoById(state.todos[i].id); }
-function delTodo(i)    { if (state.todos[i]) delTodoById(state.todos[i].id); }
+
+
 
 /* ============================================================
    11. DAILY JOURNAL
@@ -2007,29 +2070,8 @@ function registerLongPress(el, getMenuItems) {
   el.addEventListener('contextmenu', (e) => { if (isMobile()) e.preventDefault(); });
 }
 
-/**
- * Inject tombol ⋮ di setiap baris/item yang punya del-btn.
- * Dipanggil setelah setiap render. Di desktop tidak visible (CSS).
- */
-function registerAllLongPress() {
-  injectRowMenuButtons();
-}
-
-function injectRowMenuButtons() {
-  // Del-btn sudah visible langsung di mobile via CSS.
-  // Fungsi ini tidak perlu inject tombol tambahan.
-  // Hanya pastikan habit-col-th punya long-press (dipanggil dari renderHabit).
-}
-
-/**
- * makeRowMenuBtn masih ada untuk kompatibilitas, tidak dipakai aktif.
- */
-function makeRowMenuBtn(getItems) {
-  const btn = document.createElement('button');
-  btn.className = 'row-menu-btn';
-  btn.style.display = 'none';
-  return btn;
-}
+// Del-btn sudah visible di mobile via CSS. Tidak ada inject tambahan yang diperlukan.
+function registerAllLongPress() {}
 
 /* ============================================================
    20. GLOBAL SEARCH
@@ -2625,7 +2667,7 @@ Object.assign(window, {
   toggleHabit, toggleHabitDelBtn,
 
   // Todo
-  addTodo, toggleTodo, delTodo, toggleTodoById, delTodoById,
+  addTodo, toggleTodoById, delTodoById,
 
   // Journal
   saveJournal, delJournal, selectMood,
@@ -3519,4 +3561,3 @@ document.addEventListener('change', function(e) {
   const handler = e.target.getAttribute('data-onchange');
   if (handler && e.target.id !== 'import-file-input' && window[handler]) window[handler]();
 });
-

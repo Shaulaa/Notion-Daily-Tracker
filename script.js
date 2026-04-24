@@ -1,22 +1,22 @@
-﻿/**
+/**
  * ============================================================
- * Trackify â€” Personal Dashboard  |  script.js
+ * Trackify — Personal Dashboard  |  script.js
  * ============================================================
  *
  * ARSITEKTUR SINGKAT
  * ------------------
- *  1. Storage Layer   â†’ StorageManager  : baca/tulis localStorage
- *  2. State Layer     â†’ state           : satu objek data utama aplikasi
- *  3. Persistence     â†’ saveState()     : serialisasi state ke localStorage
- *  4. Render Layer    â†’ render*()       : update DOM dari state
- *  5. Event Handlers  â†’ add*(), save*() : mutasi state lalu render + save
- *  6. UI Helpers      â†’ showToast(),
+ *  1. Storage Layer   → StorageManager  : baca/tulis localStorage
+ *  2. State Layer     → state           : satu objek data utama aplikasi
+ *  3. Persistence     → saveState()     : serialisasi state ke localStorage
+ *  4. Render Layer    → render*()       : update DOM dari state
+ *  5. Event Handlers  → add*(), save*() : mutasi state lalu render + save
+ *  6. UI Helpers      → showToast(),
  *                       showPage(), dll : navigasi & feedback
  *
  * ALUR DATA
  * ---------
- *  User action â†’ handler â†’ mutasi state â†’ saveState() â†’ render DOM
- *  Halaman dimuat â†’ StorageManager.load() â†’ hydrate state â†’ render DOM
+ *  User action → handler → mutasi state → saveState() → render DOM
+ *  Halaman dimuat → StorageManager.load() → hydrate state → render DOM
  *
  * STORAGE
  * -------
@@ -26,9 +26,9 @@
  *
  * KONVENSI NAMA
  * -------------
- *  render*()  â†’ hanya baca state, update DOM
- *  save*()    â†’ validasi input, mutasi state, panggil saveState + render
- *  update*()  â†’ hitung ulang tampilan agregat (dashboard, stats)
+ *  render*()  → hanya baca state, update DOM
+ *  save*()    → validasi input, mutasi state, panggil saveState + render
+ *  update*()  → hitung ulang tampilan agregat (dashboard, stats)
  * ============================================================
  */
 
@@ -95,7 +95,7 @@ onAuthChange((user) => {
     // Mobile topbar
     document.getElementById("auth-logged-out").style.display = "block";
     document.getElementById("auth-logged-in").style.display = "none";
-    // Desktop dropdown â€” reset ke state belum login
+    // Desktop dropdown — reset ke state belum login
     const dropOut = document.getElementById("auth-drop-loggedout");
     const dropIn  = document.getElementById("auth-drop-loggedin");
     if (dropOut) dropOut.style.display = "block";
@@ -153,10 +153,10 @@ async function loadAllData() {
 
     renderAll();
     updateDashboard();
-    showToast('âœ“ Data berhasil dimuat dari cloud');
+    showToast('✓ Data berhasil dimuat dari cloud');
   } catch (e) {
     console.error('[Trackify] loadAllData error:', e);
-    showToast('âš  Gagal memuat data: ' + e.message);
+    showToast('⚠ Gagal memuat data: ' + e.message);
   }
 }
 
@@ -179,7 +179,7 @@ const StorageManager = {
       localStorage.setItem(this.KEY, JSON.stringify(data));
     } catch (err) {
       console.warn('[Trackify] Gagal menyimpan ke localStorage:', err);
-      showToast('âš  Penyimpanan gagal â€” ruang penuh atau mode private');
+      showToast('⚠ Penyimpanan gagal — ruang penuh atau mode private');
     }
   },
 
@@ -202,7 +202,7 @@ const StorageManager = {
 };
 
 /* ============================================================
-   2. STATE â€” nilai default (dipakai saat localStorage kosong)
+   2. STATE — nilai default (dipakai saat localStorage kosong)
    ============================================================ */
 
 function createDefaultState() {
@@ -262,7 +262,7 @@ function saveState() {
 }
 
 // ============================================================
-// FIREBASE SYNC â€” fire-and-forget, tidak blokir UI
+// FIREBASE SYNC — fire-and-forget, tidak blokir UI
 // ============================================================
 
 /**
@@ -341,7 +341,7 @@ function saveAndSync() {
    ============================================================ */
 
 function initApp() {
-  // Selalu mulai dari state kosong â€” data diambil dari Firebase saat login
+  // Selalu mulai dari state kosong — data diambil dari Firebase saat login
   state = createDefaultState();
 
   // Pulihkan tema dari localStorage agar tidak flicker saat refresh
@@ -452,7 +452,7 @@ const VALID_PAGES = new Set([
   'journal','reflection','sosial','emosi','menstruasi','settings','privacy'
 ]);
 
-// â”€â”€ History API: back button mobile tidak keluar dari app â”€â”€
+// ── History API: back button mobile tidak keluar dari app ──
 let _historyReady = false;
 function _initHistory() {
   if (_historyReady) return;
@@ -617,20 +617,20 @@ function clearFields(...ids) { ids.forEach(id => { const el = document.getElemen
 
 function emptyHTML(iconKey, msg) {
   const EMPTY_ICONS = {
-    'ðŸŽ¯': '<svg width="28" height="28"><use href="#icon-target"/></svg>',
-    'ðŸ”¥': '<svg width="28" height="28"><use href="#icon-fire"/></svg>',
-    'âœ…': '<svg width="28" height="28"><use href="#icon-check-circle"/></svg>',
-    'ðŸ“': '<svg width="28" height="28"><use href="#icon-journal"/></svg>',
-    'ðŸ“–': '<svg width="28" height="28"><use href="#icon-learning"/></svg>',
-    'ðŸ”®': '<svg width="28" height="28"><use href="#icon-refleksi"/></svg>',
-    'ðŸ’¬': '<svg width="28" height="28"><use href="#icon-komunikasi"/></svg>',
-    'ðŸŒŠ': '<svg width="28" height="28"><use href="#icon-emosi"/></svg>',
-    'ðŸ“…': '<svg width="28" height="28"><use href="#icon-calendar"/></svg>',
-    'ðŸ“š': '<svg width="28" height="28"><use href="#icon-learning"/></svg>',
-    'ðŸ—’ï¸': '<svg width="28" height="28"><use href="#icon-todo"/></svg>',
-    'ðŸ”': '<svg width="28" height="28"><use href="#icon-search"/></svg>',
-    'ðŸ˜¶': '<svg width="28" height="28"><use href="#icon-emosi"/></svg>',
-    'ðŸŒ¸': '<svg width="28" height="28"><use href="#icon-siklus"/></svg>',
+    '🎯': '<svg width="28" height="28"><use href="#icon-target"/></svg>',
+    '🔥': '<svg width="28" height="28"><use href="#icon-fire"/></svg>',
+    '✅': '<svg width="28" height="28"><use href="#icon-check-circle"/></svg>',
+    '📝': '<svg width="28" height="28"><use href="#icon-journal"/></svg>',
+    '📖': '<svg width="28" height="28"><use href="#icon-learning"/></svg>',
+    '🔮': '<svg width="28" height="28"><use href="#icon-refleksi"/></svg>',
+    '💬': '<svg width="28" height="28"><use href="#icon-komunikasi"/></svg>',
+    '🌊': '<svg width="28" height="28"><use href="#icon-emosi"/></svg>',
+    '📅': '<svg width="28" height="28"><use href="#icon-calendar"/></svg>',
+    '📚': '<svg width="28" height="28"><use href="#icon-learning"/></svg>',
+    '🗒️': '<svg width="28" height="28"><use href="#icon-todo"/></svg>',
+    '🔍': '<svg width="28" height="28"><use href="#icon-search"/></svg>',
+    '😶': '<svg width="28" height="28"><use href="#icon-emosi"/></svg>',
+    '🌸': '<svg width="28" height="28"><use href="#icon-siklus"/></svg>',
   };
   const iconSvg = EMPTY_ICONS[iconKey] || `<svg width="28" height="28"><use href="#icon-info"/></svg>`;
   return `<div class="empty" role="status" aria-label="${msg}">
@@ -638,7 +638,7 @@ function emptyHTML(iconKey, msg) {
 }
 
 /**
- * Escape karakter HTML â€” WAJIB digunakan sebelum memasukkan
+ * Escape karakter HTML — WAJIB digunakan sebelum memasukkan
  * input pengguna ke innerHTML untuk mencegah XSS.
  */
 function escapeHTML(str) {
@@ -674,7 +674,7 @@ function updateDashboard() {
   const tl = document.getElementById('d-target-list');
   if (tl) {
     tl.innerHTML = !state.targets.length
-      ? emptyHTML('ðŸŽ¯', 'Belum ada target.')
+      ? emptyHTML('🎯', 'Belum ada target.')
       : state.targets.slice(0, 3).map(t => `
           <div class="quick-stat">
             <div class="quick-dot" style="background:${t.status==='done'?'var(--green)':'var(--amber)'}" aria-hidden="true"></div>
@@ -688,16 +688,16 @@ function updateDashboard() {
   // Habit hari ini
   const hp = document.getElementById('d-habit-progress');
   if (hp) {
-    if (!state.habits.length) { hp.innerHTML = emptyHTML('ðŸ”¥', 'Belum ada habit.'); }
+    if (!state.habits.length) { hp.innerHTML = emptyHTML('🔥', 'Belum ada habit.'); }
     else {
       const td = today();
       hp.innerHTML = state.habits.map((h, hi) => {
         const v = state.habitData[`${td}_${hi}`] || 'none';
         const badge = v === 'done'
-          ? '<span class="badge badge-green" aria-label="Selesai">âœ“</span>'
+          ? '<span class="badge badge-green" aria-label="Selesai">✓</span>'
           : v === 'skip'
-          ? '<span class="badge badge-red" aria-label="Dilewati">âœ•</span>'
-          : '<span class="badge" style="background:var(--bg4);color:var(--text3)" aria-label="Belum">â€”</span>';
+          ? '<span class="badge badge-red" aria-label="Dilewati">✕</span>'
+          : '<span class="badge" style="background:var(--bg4);color:var(--text3)" aria-label="Belum">—</span>';
         return `<div class="quick-stat"><span style="flex:1;font-size:13px">${escapeHTML(h)}</span>${badge}</div>`;
       }).join('');
     }
@@ -706,7 +706,7 @@ function updateDashboard() {
   // Preview to-do
   const tp = document.getElementById('d-todo-preview');
   if (tp) {
-    if (!state.todos.length) { tp.innerHTML = emptyHTML('âœ…', 'Belum ada tugas.'); }
+    if (!state.todos.length) { tp.innerHTML = emptyHTML('✅', 'Belum ada tugas.'); }
     else {
       tp.innerHTML = state.todos.slice(0, 5).map(t => `
         <div class="todo-item" role="listitem">
@@ -714,7 +714,7 @@ function updateDashboard() {
                   data-action="toggleTodoById(${t.id})"
                   aria-label="${t.done?'Tandai belum selesai':'Tandai selesai'}: ${escapeHTML(t.text)}"
                   aria-pressed="${t.done}">
-            ${t.done ? 'âœ“' : ''}
+            ${t.done ? '✓' : ''}
           </button>
           <span class="todo-text ${t.done?'done':''}">${escapeHTML(t.text)}</span>
         </div>`).join('');
@@ -729,10 +729,10 @@ function updateDashboard() {
       jp.innerHTML = `<div>
         <div style="margin-bottom:8px">${tj.mood ? `<span class="badge badge-purple">${escapeHTML(tj.mood)}</span>` : ''}</div>
         <div style="font-size:13px;color:var(--text2);line-height:1.6">
-          ${escapeHTML(tj.did.slice(0,140))}${tj.did.length>140?'â€¦':''}
+          ${escapeHTML(tj.did.slice(0,140))}${tj.did.length>140?'…':''}
         </div></div>`;
     } else {
-      jp.innerHTML = emptyHTML('ðŸ“', 'Belum ada jurnal hari ini.');
+      jp.innerHTML = emptyHTML('📝', 'Belum ada jurnal hari ini.');
     }
   }
 
@@ -742,7 +742,7 @@ function updateDashboard() {
   renderDashboardCharts();
 }
 
-/* â”€â”€ GRAFIK DASHBOARD (Chart.js via CDN) â”€â”€ */
+/* ── GRAFIK DASHBOARD (Chart.js via CDN) ── */
 let _chartInstances = {};
 
 function _destroyChart(id) {
@@ -770,7 +770,7 @@ function renderDashboardCharts() {
     }
   };
 
-  // â”€â”€ 1. Habit 7 hari terakhir â”€â”€
+  // ── 1. Habit 7 hari terakhir ──
   (function() {
     const id = 'chart-habit-week';
     const emptyEl = document.getElementById(id + '-empty');
@@ -811,7 +811,7 @@ function renderDashboardCharts() {
     });
   })();
 
-  // â”€â”€ 2. Distribusi Mood â”€â”€
+  // ── 2. Distribusi Mood ──
   (function() {
     const id = 'chart-mood-dist';
     const emptyEl = document.getElementById(id + '-empty');
@@ -841,7 +841,7 @@ function renderDashboardCharts() {
     });
   })();
 
-  // â”€â”€ 3. Status Target â”€â”€
+  // ── 3. Status Target ──
   (function() {
     const id = 'chart-target-status';
     const emptyEl = document.getElementById(id + '-empty');
@@ -860,7 +860,7 @@ function renderDashboardCharts() {
     _chartInstances[id] = new Chart(canvas, {
       type: 'doughnut',
       data: {
-        labels: ['Selesai', 'On Progress'],
+        labels: ['Selesai', 'Berjalan'],
         datasets: [{ data: [done, prog], backgroundColor: [green + 'cc', amber + 'cc'], borderColor: [green, amber], borderWidth: 1.5 }]
       },
       options: { responsive: true, maintainAspectRatio: false, cutout: '60%',
@@ -872,7 +872,7 @@ function renderDashboardCharts() {
     });
   })();
 
-  // â”€â”€ 4. Sesi Belajar 7 hari â”€â”€
+  // ── 4. Sesi Belajar 7 hari ──
   (function() {
     const id = 'chart-learning-week';
     const emptyEl = document.getElementById(id + '-empty');
@@ -916,25 +916,22 @@ function renderTargets() {
   const tb = document.getElementById('target-table');
   if (!tb) return;
   if (!state.targets.length) {
-    tb.innerHTML = `<tr><td colspan="6" style="text-align:center;width:100%;display:block;border:none">${emptyHTML('ðŸŽ¯','Belum ada target.')}</td></tr>`; return;
+    tb.innerHTML = `<tr><td colspan="6" style="text-align:center;width:100%;display:block;border:none">${emptyHTML('🎯','Belum ada target.')}</td></tr>`; return;
   }
   tb.innerHTML = state.targets.map((t, i) => {
-    const dl   = t.deadline ? new Date(t.deadline + 'T00:00:00') : null;
-    const days = dl ? Math.ceil((dl - new Date()) / 86_400_000) : null;
-    const prog = t.status === 'done' ? 100
-               : days !== null ? Math.max(0, Math.min(85, 100 - days * 2)) : 30;
+    const prog = getTargetProgress(t);
     const isDone = t.status === 'done';
-    const noteSnip = t.note ? escapeHTML(t.note.slice(0, 60)) + (t.note.length > 60 ? 'â€¦' : '') : '<span style="color:var(--text3)">â€”</span>';
+    const noteSnip = t.note ? escapeHTML(t.note.slice(0, 60)) + (t.note.length > 60 ? '...' : '') : '<span style="color:var(--text3)">—</span>';
     return `<tr>
       <td data-label="Target" style="font-weight:600">${escapeHTML(t.name)}</td>
       <td data-label="Catatan" style="font-size:12px;color:var(--text2);max-width:160px">${noteSnip}</td>
-      <td data-label="Deadline" style="color:var(--text3);font-size:12px"><time datetime="${t.deadline||''}">${t.deadline||'â€”'}</time></td>
+      <td data-label="Deadline" style="color:var(--text3);font-size:12px"><time datetime="${t.deadline||''}">${t.deadline||'—'}</time></td>
       <td data-label="Status">
         <button class="status-toggle-btn ${isDone ? 'status-done' : 'status-progress'}"
                 data-action="toggleTargetStatus(${i})"
-                aria-label="Klik untuk ubah status: ${isDone ? 'Selesai' : 'On Progress'}"
+                aria-label="Klik untuk ubah status: ${isDone ? 'Selesai' : 'Berjalan'}"
                 title="Klik untuk ubah status">
-          ${isDone ? 'âœ“ Selesai' : 'Berjalan'}
+          ${isDone ? '✓ Selesai' : 'Berjalan'}
         </button>
       </td>
       <td data-label="Progress" style="min-width:120px">
@@ -958,11 +955,11 @@ function addTarget() {
   const deadline = document.getElementById('t-deadline')?.value;
   const status   = document.getElementById('t-status')?.value;
   const note     = document.getElementById('t-note')?.value.trim() || '';
-  if (!name) { showToast('âš  Nama target tidak boleh kosong'); document.getElementById('t-name')?.focus(); return; }
+  if (!name) { showToast('Nama target tidak boleh kosong'); document.getElementById('t-name')?.focus(); return; }
   state.targets.push({ name, deadline, status: status || 'on_progress', note });
   clearFields('t-name','t-deadline','t-note');
   saveAndSync(); renderTargets(); updateDashboard();
-  showToast('âœ“ Target berhasil ditambahkan');
+  showToast('Target berhasil ditambahkan');
 }
 
 function delTarget(i) {
@@ -980,6 +977,19 @@ function toggleTargetStatus(i) {
   showToast(state.targets[i].status === 'done' ? 'Target ditandai selesai' : 'Target kembali on progress');
 }
 
+function getTargetProgress(target) {
+  if (!target) return 0;
+  if (target.status === 'done') return 100;
+  if (!target.deadline) return 30;
+
+  const deadline = new Date(`${target.deadline}T00:00:00`);
+  if (Number.isNaN(deadline.getTime())) return 30;
+
+  const daysUntilDeadline = Math.ceil((deadline.getTime() - Date.now()) / 86_400_000);
+  const rawProgress = 100 - (daysUntilDeadline * 2);
+  return Math.max(0, Math.min(100, Math.round(rawProgress)));
+}
+
 /* ============================================================
    9. HABIT TRACKER
    ============================================================ */
@@ -991,7 +1001,7 @@ function renderHabit() {
 
   if (!state.habits.length) {
     head.innerHTML = '';
-    body.innerHTML = `<tr><td>${emptyHTML('ðŸ”¥','Belum ada habit. Tambahkan di atas!')}</td></tr>`; return;
+    body.innerHTML = `<tr><td>${emptyHTML('🔥','Belum ada habit. Tambahkan di atas!')}</td></tr>`; return;
   }
 
   const TRASH = `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg>`;
@@ -1053,17 +1063,17 @@ function toggleHabit(row, hi) {
 
 function addHabit() {
   const v = document.getElementById('new-habit')?.value.trim();
-  if (!v) { showToast('âš  Nama habit tidak boleh kosong'); document.getElementById('new-habit')?.focus(); return; }
-  if (state.habits.includes(v)) { showToast('âš  Habit ini sudah ada'); return; }
+  if (!v) { showToast('⚠ Nama habit tidak boleh kosong'); document.getElementById('new-habit')?.focus(); return; }
+  if (state.habits.includes(v)) { showToast('⚠ Habit ini sudah ada'); return; }
   state.habits.push(v); clearFields('new-habit');
-  saveAndSync(); renderHabit(); showToast('âœ“ Habit ditambahkan');
+  saveAndSync(); renderHabit(); showToast('✓ Habit ditambahkan');
 }
 
 function addHabitRow() {
   const d = document.getElementById('habit-date')?.value || today();
-  if (habitRows.includes(d)) { showToast('â„¹ Tanggal tersebut sudah ada'); return; }
+  if (habitRows.includes(d)) { showToast('ℹ Tanggal tersebut sudah ada'); return; }
   habitRows.push(d); habitRows.sort();
-  saveAndSync(); renderHabit(); showToast(`âœ“ Tanggal ${d} ditambahkan`);
+  saveAndSync(); renderHabit(); showToast(`✓ Tanggal ${d} ditambahkan`);
 }
 
 function delHabitRow(i) {
@@ -1079,7 +1089,7 @@ function delHabit(i) {
   state.habits.splice(i, 1); saveAndSync(); renderHabit(); showToast('Habit dihapus');
 }
 
-/** Tap nama kolom habit â†’ toggle tampil/sembunyi ikon sampah
+/** Tap nama kolom habit → toggle tampil/sembunyi ikon sampah
  *  Mobile: auto-hide setelah 2 detik jika tidak diklik
  */
 let _habitDelTimer = null;
@@ -1107,14 +1117,14 @@ function toggleHabitDelBtn(thEl, hi) {
 function renderTodo() {
   const el = document.getElementById('todo-list');
   if (!el) return;
-  if (!state.todos.length) { el.innerHTML = emptyHTML('ðŸ—’ï¸','Belum ada tugas. Tambahkan sekarang!'); return; }
+  if (!state.todos.length) { el.innerHTML = emptyHTML('🗒️','Belum ada tugas. Tambahkan sekarang!'); return; }
   el.setAttribute('role', 'list');
   el.innerHTML = state.todos.map(t => {
     let dueMeta = '';
     if (t.dueDate || t.dueTime) {
       const isOverdue = t.dueDate && !t.done && t.dueDate < today();
       dueMeta = `<span class="todo-due ${isOverdue ? 'overdue' : ''}" aria-label="Jatuh tempo">
-        ${t.dueDate ? t.dueDate : ''}${t.dueDate && t.dueTime ? ' Â· ' : ''}${t.dueTime ? t.dueTime : ''}
+        ${t.dueDate ? t.dueDate : ''}${t.dueDate && t.dueTime ? ' · ' : ''}${t.dueTime ? t.dueTime : ''}
       </span>`;
     }
     return `<div class="todo-item" role="listitem">
@@ -1156,7 +1166,7 @@ function delTodoById(id) {
 function addTodo() {
   const input = document.getElementById('todo-input');
   const v = input?.value.trim();
-  if (!v) { showToast('âš  Teks tugas tidak boleh kosong'); input?.focus(); return; }
+  if (!v) { showToast('⚠ Teks tugas tidak boleh kosong'); input?.focus(); return; }
   const dateVal  = document.getElementById('todo-date')?.value || '';
   const timeVal  = document.getElementById('todo-time')?.value || '';
   const priority = document.getElementById('todo-priority')?.value || 'medium';
@@ -1172,7 +1182,7 @@ function addTodo() {
     category
   });
   if (input) input.value = '';
-  saveAndSync(); renderTodo(); updateDashboard(); showToast('âœ“ Tugas ditambahkan');
+  saveAndSync(); renderTodo(); updateDashboard(); showToast('✓ Tugas ditambahkan');
 }
 
 // Alias untuk kompatibilitas event handler di HTML yang menggunakan index
@@ -1197,20 +1207,20 @@ function saveJournal() {
   const good    = document.getElementById('j-good')?.value.trim()    || '';
   const improve = document.getElementById('j-improve')?.value.trim() || '';
   const mood    = document.getElementById('j-mood')?.value || '';
-  if (!did) { showToast('âš  Isi kolom Aktivitas terlebih dahulu'); document.getElementById('j-did')?.focus(); return; }
+  if (!did) { showToast('Isi kolom Aktivitas terlebih dahulu'); document.getElementById('j-did')?.focus(); return; }
   state.journals.unshift({ date, did, good, improve, mood });
   clearFields('j-did','j-good','j-improve');
   const moodEl = document.getElementById('j-mood');
   if (moodEl) moodEl.value = '';
   state.selectedMood = '';
   saveAndSync(); renderJournals(); updateDashboard(); updateRewardPage();
-  showToast('âœ“ Jurnal tersimpan');
+  showToast('Jurnal tersimpan');
 }
 
 function renderJournals() {
   const el = document.getElementById('journal-list');
   if (!el) return;
-  if (!state.journals.length) { el.innerHTML = emptyHTML('ðŸ“–','Belum ada jurnal.'); return; }
+  if (!state.journals.length) { el.innerHTML = emptyHTML('📖','Belum ada jurnal.'); return; }
   el.innerHTML = state.journals.map((j, i) => `
     <article class="journal-entry">
       <div class="journal-meta">
@@ -1222,7 +1232,7 @@ function renderJournals() {
         </div>
       </div>
       <div style="font-size:13px;color:var(--text2);line-height:1.6">
-        ${escapeHTML(j.did.slice(0,150))}${j.did.length>150?'â€¦':''}
+        ${escapeHTML(j.did.slice(0,150))}${j.did.length>150?'…':''}
       </div>
     </article>`).join('');
   setTimeout(registerAllLongPress, 60);
@@ -1243,16 +1253,16 @@ function saveReflection() {
   const grow = document.getElementById('r-grow')?.value.trim();
   const lack = document.getElementById('r-lack')?.value.trim() || '';
   const plan = document.getElementById('r-plan')?.value.trim() || '';
-  if (!grow) { showToast('âš  Isi kolom "Yang sudah berkembang"'); document.getElementById('r-grow')?.focus(); return; }
+  if (!grow) { showToast('⚠ Isi kolom "Yang sudah berkembang"'); document.getElementById('r-grow')?.focus(); return; }
   state.reflections.unshift({ date, grow, lack, plan });
   clearFields('r-grow','r-lack','r-plan');
-  saveAndSync(); renderReflections(); showToast('âœ“ Refleksi tersimpan');
+  saveAndSync(); renderReflections(); showToast('✓ Refleksi tersimpan');
 }
 
 function renderReflections() {
   const el = document.getElementById('reflection-list');
   if (!el) return;
-  if (!state.reflections.length) { el.innerHTML = emptyHTML('ðŸ”®','Belum ada refleksi.'); return; }
+  if (!state.reflections.length) { el.innerHTML = emptyHTML('🔮','Belum ada refleksi.'); return; }
   el.innerHTML = state.reflections.map((r, i) => `
     <article class="journal-entry">
       <div class="journal-meta">
@@ -1287,16 +1297,16 @@ function saveSosial() {
   const topic   = document.getElementById('s-topic')?.value.trim()   || '';
   const improve = document.getElementById('s-improve')?.value.trim() || '';
   const note    = document.getElementById('s-note')?.value.trim()    || '';
-  if (!who) { showToast('âš  Isi nama orang yang diajak bicara'); document.getElementById('s-who')?.focus(); return; }
+  if (!who) { showToast('⚠ Isi nama orang yang diajak bicara'); document.getElementById('s-who')?.focus(); return; }
   state.sosials.unshift({ date, who, topic, improve, note });
   clearFields('s-who','s-topic','s-improve','s-note');
-  saveAndSync(); renderSosials(); showToast('âœ“ Catatan sosial tersimpan');
+  saveAndSync(); renderSosials(); showToast('✓ Catatan sosial tersimpan');
 }
 
 function renderSosials() {
   const el = document.getElementById('sosial-list');
   if (!el) return;
-  if (!state.sosials.length) { el.innerHTML = emptyHTML('ðŸ’¬','Belum ada catatan.'); return; }
+  if (!state.sosials.length) { el.innerHTML = emptyHTML('💬','Belum ada catatan.'); return; }
   el.innerHTML = state.sosials.map((s, i) => `
     <article class="journal-entry">
       <div class="journal-meta">
@@ -1334,22 +1344,22 @@ function addEmosi() {
   const mood     = document.getElementById('e-mood')?.value;
   const cause    = document.getElementById('e-cause')?.value.trim()    || '';
   const solution = document.getElementById('e-solution')?.value.trim() || '';
-  if (!mood) { showToast('âš  Pilih mood terlebih dahulu'); return; }
+  if (!mood) { showToast('⚠ Pilih mood terlebih dahulu'); return; }
   state.emosis.unshift({ date, mood, cause, solution });
   clearFields('e-cause','e-solution');
-  saveAndSync(); renderEmosi(); showToast('âœ“ Emosi dicatat');
+  saveAndSync(); renderEmosi(); showToast('✓ Emosi dicatat');
 }
 
 function renderEmosi() {
   const tb = document.getElementById('emosi-table');
   if (!tb) return;
-  if (!state.emosis.length) { tb.innerHTML = `<tr><td colspan="5">${emptyHTML('ðŸŒŠ','Belum ada data emosi.')}</td></tr>`; return; }
+  if (!state.emosis.length) { tb.innerHTML = `<tr><td colspan="5">${emptyHTML('🌊','Belum ada data emosi.')}</td></tr>`; return; }
   tb.innerHTML = state.emosis.map((e, i) => `
     <tr>
       <td data-label="Tanggal" style="white-space:nowrap;font-size:12px;color:var(--text3)"><time datetime="${e.date}">${e.date}</time></td>
       <td data-label="Mood"><span class="badge ${MOOD_COLOR[e.mood]||'badge-purple'}">${escapeHTML(e.mood)}</span></td>
-      <td data-label="Penyebab" style="font-size:12px;color:var(--text2)">${escapeHTML(e.cause)||'â€”'}</td>
-      <td data-label="Solusi" style="font-size:12px;color:var(--text2)">${escapeHTML(e.solution)||'â€”'}</td>
+      <td data-label="Penyebab" style="font-size:12px;color:var(--text2)">${escapeHTML(e.cause)||'—'}</td>
+      <td data-label="Solusi" style="font-size:12px;color:var(--text2)">${escapeHTML(e.solution)||'—'}</td>
       <td data-label=""><div style="display:flex;gap:6px;">
         <button class="edit-btn" data-action="editEmosi(${i})" aria-label="Edit catatan emosi ${e.date}"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg></button>
         <button class="del-btn" data-action="delEmosi(${i})" aria-label="Hapus catatan emosi ${e.date}"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg></button>
@@ -1369,7 +1379,7 @@ function delEmosi(i) {
 
 function claimDailyStreak() {
   const t = today();
-  if (state.lastCheckin === t) { showToast('âœ“ Sudah check-in hari ini!'); return; }
+  if (state.lastCheckin === t) { showToast('✓ Sudah check-in hari ini!'); return; }
 
   const yest = new Date(); yest.setDate(yest.getDate() - 1);
   const yStr = yest.toISOString().slice(0, 10);
@@ -1436,7 +1446,7 @@ function updateRewardPage() {
   const ch = document.getElementById('checkin-history');
   if (ch) {
     ch.innerHTML = !state.checkins.length
-      ? emptyHTML('ðŸ“…','Belum ada check-in.')
+      ? emptyHTML('📅','Belum ada check-in.')
       : state.checkins.slice(0, 10).map(c => `
           <div class="quick-stat">
             <svg width="18" height="18" style="color:#f97316;vertical-align:-3px"><use href="#icon-fire"/></svg>
@@ -1468,10 +1478,10 @@ function saveLearning() {
   const insight  = document.getElementById('l-insight')?.value.trim()  || '';
   const duration = document.getElementById('l-duration')?.value || '';
 
-  if (!subject) { showToast('âš  Isi kolom Topik terlebih dahulu'); document.getElementById('l-subject')?.focus(); return; }
-  if (!what)    { showToast('âš  Isi kolom Materi terlebih dahulu'); document.getElementById('l-what')?.focus(); return; }
+  if (!subject) { showToast('⚠ Isi kolom Topik terlebih dahulu'); document.getElementById('l-subject')?.focus(); return; }
+  if (!what)    { showToast('⚠ Isi kolom Materi terlebih dahulu'); document.getElementById('l-what')?.focus(); return; }
   if (duration && (isNaN(Number(duration)) || Number(duration) <= 0)) {
-    showToast('âš  Durasi harus berupa angka positif'); document.getElementById('l-duration')?.focus(); return;
+    showToast('⚠ Durasi harus berupa angka positif'); document.getElementById('l-duration')?.focus(); return;
   }
 
   state.learnings.unshift({ date, subject, what, insight, duration, cat: selectedCat });
@@ -1485,7 +1495,7 @@ function saveLearning() {
 function renderLearnings() {
   const el = document.getElementById('learning-list');
   if (!el) return;
-  if (!state.learnings.length) { el.innerHTML = emptyHTML('ðŸ“–','Belum ada sesi belajar.'); return; }
+  if (!state.learnings.length) { el.innerHTML = emptyHTML('📖','Belum ada sesi belajar.'); return; }
   el.innerHTML = state.learnings.map((l, i) => `
     <article class="learning-entry">
       <div class="learning-entry-header">
@@ -1499,9 +1509,9 @@ function renderLearnings() {
       </div>
       <div class="learning-subject">${escapeHTML(l.subject)}</div>
       <div style="font-size:13px;color:var(--text2);line-height:1.6;margin-top:4px">
-        ${escapeHTML(l.what.slice(0,180))}${l.what.length>180?'â€¦':''}
+        ${escapeHTML(l.what.slice(0,180))}${l.what.length>180?'…':''}
       </div>
-      ${l.insight ? `<div class="learning-insight">ðŸ’¡ ${escapeHTML(l.insight.slice(0,160))}${l.insight.length>160?'â€¦':''}</div>` : ''}
+      ${l.insight ? `<div class="learning-insight">💡 ${escapeHTML(l.insight.slice(0,160))}${l.insight.length>160?'…':''}</div>` : ''}
     </article>`).join('');
   setTimeout(registerAllLongPress, 60);
 }
@@ -1534,7 +1544,7 @@ function addDays(dateStr, n) {
   return d.toISOString().slice(0, 10);
 }
 function fmtDateID(dateStr) {
-  if (!dateStr) return 'â€”';
+  if (!dateStr) return '—';
   const [y, m, d] = dateStr.split('-');
   const bulan = ['Jan','Feb','Mar','Apr','Mei','Jun','Jul','Agu','Sep','Okt','Nov','Des'];
   return `${+d} ${bulan[+m - 1]} ${y}`;
@@ -1786,7 +1796,7 @@ function resetAllData() {
   state = createDefaultState(); habitRows = [today()]; selectedCat = '';
   state.theme = currentTheme;
   applyTheme(currentTheme); setDefaultFormDates(); renderAll(); renderDashboardDate();
-  showToast('ðŸ—‘ï¸ Semua data berhasil direset');
+  showToast('🗑️ Semua data berhasil direset');
 }
 
 /* ============================================================
@@ -1803,7 +1813,7 @@ function updateSettingsPage() {
   setText('settings-count-emosi',    `${state.emosis.length} catatan tersimpan`);
   setText('settings-count-menstruasi', `${(state.menstruasis||[]).length} siklus tersimpan`);
   setText('settings-count-learning', `${state.learnings.length} sesi tersimpan`);
-  setText('settings-count-streak',   `Streak ${state.streak} hari Â· ${state.checkins.length} check-in`);
+  setText('settings-count-streak',   `Streak ${state.streak} hari · ${state.checkins.length} check-in`);
   // Update tombol tema di settings
   const btn = document.getElementById('settings-theme-btn');
   if (btn) {
@@ -1831,14 +1841,14 @@ function clearSectionData(section) {
     state[section] = [];
   }
   saveAndSync(); renderAll(); updateSettingsPage();
-  showToast(`ðŸ—‘ï¸ Data berhasil dihapus`);
+  showToast(`🗑️ Data berhasil dihapus`);
 }
 
 /* ============================================================
    19. LONG PRESS CONTEXT MENU (Mobile)
    ============================================================ */
 
-/** Deteksi mobile: layar â‰¤ 900px */
+/** Deteksi mobile: layar ≤ 900px */
 function isMobile() { return window.matchMedia('(max-width: 900px)').matches; }
 
 let _lpTimer = null;
@@ -1928,7 +1938,7 @@ function registerLongPress(el, getMenuItems) {
 }
 
 /**
- * Inject tombol â‹® di setiap baris/item yang punya del-btn.
+ * Inject tombol ⋮ di setiap baris/item yang punya del-btn.
  * Dipanggil setelah setiap render. Di desktop tidak visible (CSS).
  */
 function registerAllLongPress() {
@@ -1957,7 +1967,7 @@ function makeRowMenuBtn(getItems) {
 
 /**
  * Definisi sumber data pencarian.
- * Setiap entry: { page, icon, badge, getItems() â†’ [{ title, meta }] }
+ * Setiap entry: { page, icon, badge, getItems() → [{ title, meta }] }
  */
 function getSearchSources() {
   return [
@@ -1965,7 +1975,7 @@ function getSearchSources() {
       page: 'target', icon: 'target', badge: 'Target',
       getItems: () => state.targets.map((t, i) => ({
         title: t.name,
-        meta: `${t.deadline || 'Tanpa deadline'} Â· ${t.status === 'done' ? 'âœ“ Selesai' : 'â³ Berjalan'}`,
+        meta: `${t.deadline || 'Tanpa deadline'} · ${t.status === 'done' ? '✓ Selesai' : '⏳ Berjalan'}`,
         action: () => showPage('target', navBtn(1))
       }))
     },
@@ -1981,7 +1991,7 @@ function getSearchSources() {
       page: 'todo', icon: 'todo', badge: 'To-Do',
       getItems: () => state.todos.map((t) => ({
         title: t.text,
-        meta: `${t.done ? 'âœ“ Selesai' : 'â—‹ Belum'} Â· ${t.createdAt || ''}`,
+        meta: `${t.done ? '✓ Selesai' : '○ Belum'} · ${t.createdAt || ''}`,
         action: () => showPage('todo', navBtn(3))
       }))
     },
@@ -1989,7 +1999,7 @@ function getSearchSources() {
       page: 'journal', icon: 'journal', badge: 'Jurnal',
       getItems: () => state.journals.map((j) => ({
         title: j.did ? j.did.slice(0, 80) : `Jurnal ${j.date}`,
-        meta: `${j.date} Â· ${j.mood || 'Tanpa mood'}`,
+        meta: `${j.date} · ${j.mood || 'Tanpa mood'}`,
         action: () => showPage('journal', navBtn(6))
       }))
     },
@@ -1997,7 +2007,7 @@ function getSearchSources() {
       page: 'reflection', icon: 'refleksi', badge: 'Refleksi',
       getItems: () => state.reflections.map((r) => ({
         title: r.grow ? r.grow.slice(0, 80) : `Refleksi ${r.date}`,
-        meta: `${r.date} Â· ${r.lack ? r.lack.slice(0, 40) : ''}`,
+        meta: `${r.date} · ${r.lack ? r.lack.slice(0, 40) : ''}`,
         action: () => showPage('reflection', navBtn(7))
       }))
     },
@@ -2005,15 +2015,15 @@ function getSearchSources() {
       page: 'sosial', icon: 'komunikasi', badge: 'Komunikasi',
       getItems: () => state.sosials.map((s) => ({
         title: s.topic || `Dengan ${s.who}`,
-        meta: `${s.date} Â· ${s.who || ''}`,
+        meta: `${s.date} · ${s.who || ''}`,
         action: () => showPage('sosial', navBtn(9))
       }))
     },
     {
       page: 'emosi', icon: 'emosi', badge: 'Emosi',
       getItems: () => state.emosis.map((e) => ({
-        title: `${e.mood} â€” ${e.cause ? e.cause.slice(0, 60) : 'Tanpa keterangan'}`,
-        meta: `${e.date} Â· ${e.solution ? e.solution.slice(0, 40) : ''}`,
+        title: `${e.mood} — ${e.cause ? e.cause.slice(0, 60) : 'Tanpa keterangan'}`,
+        meta: `${e.date} · ${e.solution ? e.solution.slice(0, 40) : ''}`,
         action: () => showPage('emosi', navBtn(10))
       }))
     },
@@ -2021,7 +2031,7 @@ function getSearchSources() {
       page: 'learning', icon: 'learning', badge: 'Learning',
       getItems: () => state.learnings.map((l) => ({
         title: l.subject || 'Sesi belajar',
-        meta: `${l.date} Â· ${l.what ? l.what.slice(0, 50) : ''} Â· ${l.duration ? l.duration + ' menit' : ''}`,
+        meta: `${l.date} · ${l.what ? l.what.slice(0, 50) : ''} · ${l.duration ? l.duration + ' menit' : ''}`,
         action: () => showPage('learning', navBtn(5))
       }))
     }
@@ -2175,7 +2185,7 @@ function saveEditModal() {
   else if (type === 'learning') _saveEditLearning(index);
 }
 
-// â”€â”€ TARGET â”€â”€
+// ── TARGET ──
 function editTarget(i) {
   const t = state.targets[i];
   if (!t) return;
@@ -2186,7 +2196,7 @@ function editTarget(i) {
     <input id="em-t-deadline" type="date" value="${t.deadline||''}" style="width:100%;margin-bottom:12px">
     <label style="display:block;font-size:12px;color:var(--text3);margin-bottom:4px">Status</label>
     <select id="em-t-status" style="width:100%;margin-bottom:12px">
-      <option value="on_progress" ${t.status==='on_progress'?'selected':''}>On Progress</option>
+      <option value="on_progress" ${t.status==='on_progress'?'selected':''}>Berjalan</option>
       <option value="done" ${t.status==='done'?'selected':''}>Selesai</option>
     </select>
     <label style="display:block;font-size:12px;color:var(--text3);margin-bottom:4px">Catatan / Deskripsi</label>
@@ -2194,16 +2204,16 @@ function editTarget(i) {
 }
 function _saveEditTarget(i) {
   const name = document.getElementById('em-t-name')?.value.trim();
-  if (!name) { showToast('âš  Nama target tidak boleh kosong'); return; }
+  if (!name) { showToast('Nama target tidak boleh kosong'); return; }
   state.targets[i].name     = name;
   state.targets[i].deadline = document.getElementById('em-t-deadline')?.value || '';
   state.targets[i].status   = document.getElementById('em-t-status')?.value || 'on_progress';
   state.targets[i].note     = document.getElementById('em-t-note')?.value.trim() || '';
   saveAndSync(); renderTargets(); updateDashboard();
-  showToast('âœ“ Target berhasil diupdate'); closeEditModal();
+  showToast('✓ Target berhasil diupdate'); closeEditModal();
 }
 
-// â”€â”€ TODO â”€â”€
+// ── TODO ──
 function editTodo(id) {
   // eslint-disable-next-line eqeqeq
   const t = state.todos.find(x => x.id == id);
@@ -2212,7 +2222,7 @@ function editTodo(id) {
     ['high','High'],['medium','Medium'],['low','Low']
   ].map(([v,l]) => `<option value="${v}" ${(t.priority||'medium')===v?'selected':''}>${l}</option>`).join('');
   const catOpts = [
-    ['','â€” Pilih â€”'],['Kerja','Kerja'],['Pribadi','Pribadi'],
+    ['','— Pilih —'],['Kerja','Kerja'],['Pribadi','Pribadi'],
     ['Belajar','Belajar'],['Kesehatan','Kesehatan'],['Lainnya','Lainnya']
   ].map(([v,l]) => `<option value="${v}" ${(t.category||'')===v?'selected':''}>${l}</option>`).join('');
   openEditModal('Edit Tugas', `
@@ -2229,25 +2239,25 @@ function editTodo(id) {
 }
 function _saveEditTodo(todoId) {
   const text = document.getElementById('em-td-text')?.value.trim();
-  if (!text) { showToast('âš  Teks tugas tidak boleh kosong'); return; }
+  if (!text) { showToast('⚠ Teks tugas tidak boleh kosong'); return; }
   // eslint-disable-next-line eqeqeq
   const todo = state.todos.find(x => x.id == todoId);
-  if (!todo) { showToast('âš  Tugas tidak ditemukan'); return; }
+  if (!todo) { showToast('⚠ Tugas tidak ditemukan'); return; }
   todo.text     = text;
   todo.dueDate  = document.getElementById('em-td-date')?.value || '';
   todo.dueTime  = document.getElementById('em-td-time')?.value || '';
   todo.priority = document.getElementById('em-td-priority')?.value || 'medium';
   todo.category = document.getElementById('em-td-category')?.value || '';
   saveAndSync(); renderTodo(); updateDashboard();
-  showToast('âœ“ Tugas berhasil diupdate'); closeEditModal();
+  showToast('✓ Tugas berhasil diupdate'); closeEditModal();
 }
 
-// â”€â”€ JOURNAL â”€â”€
+// ── JOURNAL ──
 function editJournal(i) {
   const j = state.journals[i];
   if (!j) return;
   const moodOpts = ['','Bahagia','Semangat','Biasa','Lelah','Cemas','Sedih','Marah','Stres']
-    .map(m => `<option value="${m}" ${j.mood===m?'selected':''}>${m||'â€” Pilih mood â€”'}</option>`).join('');
+    .map(m => `<option value="${m}" ${j.mood===m?'selected':''}>${m||'— Pilih mood —'}</option>`).join('');
   openEditModal('Edit Jurnal', `
     <label style="display:block;font-size:12px;color:var(--text3);margin-bottom:4px">Tanggal</label>
     <input id="em-j-date" type="date" value="${j.date}" style="width:100%;margin-bottom:12px">
@@ -2262,17 +2272,17 @@ function editJournal(i) {
 }
 function _saveEditJournal(i) {
   const did = document.getElementById('em-j-did')?.value.trim();
-  if (!did) { showToast('âš  Aktivitas tidak boleh kosong'); return; }
+  if (!did) { showToast('⚠ Aktivitas tidak boleh kosong'); return; }
   state.journals[i].date    = document.getElementById('em-j-date')?.value || today();
   state.journals[i].did     = did;
   state.journals[i].good    = document.getElementById('em-j-good')?.value.trim() || '';
   state.journals[i].improve = document.getElementById('em-j-improve')?.value.trim() || '';
   state.journals[i].mood    = document.getElementById('em-j-mood')?.value || '';
   saveAndSync(); renderJournals(); updateDashboard();
-  showToast('âœ“ Jurnal berhasil diupdate'); closeEditModal();
+  showToast('✓ Jurnal berhasil diupdate'); closeEditModal();
 }
 
-// â”€â”€ REFLEKSI â”€â”€
+// ── REFLEKSI ──
 function editReflection(i) {
   const r = state.reflections[i];
   if (!r) return;
@@ -2288,16 +2298,16 @@ function editReflection(i) {
 }
 function _saveEditReflection(i) {
   const grow = document.getElementById('em-r-grow')?.value.trim();
-  if (!grow) { showToast('âš  Kolom berkembang tidak boleh kosong'); return; }
+  if (!grow) { showToast('⚠ Kolom berkembang tidak boleh kosong'); return; }
   state.reflections[i].date = document.getElementById('em-r-date')?.value || today();
   state.reflections[i].grow = grow;
   state.reflections[i].lack = document.getElementById('em-r-lack')?.value.trim() || '';
   state.reflections[i].plan = document.getElementById('em-r-plan')?.value.trim() || '';
   saveAndSync(); renderReflections();
-  showToast('âœ“ Refleksi berhasil diupdate'); closeEditModal();
+  showToast('✓ Refleksi berhasil diupdate'); closeEditModal();
 }
 
-// â”€â”€ SOSIAL â”€â”€
+// ── SOSIAL ──
 function editSosial(i) {
   const s = state.sosials[i];
   if (!s) return;
@@ -2315,17 +2325,17 @@ function editSosial(i) {
 }
 function _saveEditSosial(i) {
   const who = document.getElementById('em-s-who')?.value.trim();
-  if (!who) { showToast('âš  Nama orang tidak boleh kosong'); return; }
+  if (!who) { showToast('⚠ Nama orang tidak boleh kosong'); return; }
   state.sosials[i].date    = document.getElementById('em-s-date')?.value || today();
   state.sosials[i].who     = who;
   state.sosials[i].topic   = document.getElementById('em-s-topic')?.value.trim() || '';
   state.sosials[i].improve = document.getElementById('em-s-improve')?.value.trim() || '';
   state.sosials[i].note    = document.getElementById('em-s-note')?.value.trim() || '';
   saveAndSync(); renderSosials();
-  showToast('âœ“ Catatan sosial diupdate'); closeEditModal();
+  showToast('✓ Catatan sosial diupdate'); closeEditModal();
 }
 
-// â”€â”€ EMOSI â”€â”€
+// ── EMOSI ──
 function editEmosi(i) {
   const e = state.emosis[i];
   if (!e) return;
@@ -2343,21 +2353,21 @@ function editEmosi(i) {
 }
 function _saveEditEmosi(i) {
   const mood = document.getElementById('em-e-mood')?.value;
-  if (!mood) { showToast('âš  Pilih mood'); return; }
+  if (!mood) { showToast('⚠ Pilih mood'); return; }
   state.emosis[i].date     = document.getElementById('em-e-date')?.value || today();
   state.emosis[i].mood     = mood;
   state.emosis[i].cause    = document.getElementById('em-e-cause')?.value.trim() || '';
   state.emosis[i].solution = document.getElementById('em-e-solution')?.value.trim() || '';
   saveAndSync(); renderEmosi();
-  showToast('âœ“ Catatan emosi diupdate'); closeEditModal();
+  showToast('✓ Catatan emosi diupdate'); closeEditModal();
 }
 
-// â”€â”€ LEARNING â”€â”€
+// ── LEARNING ──
 function editLearning(i) {
   const l = state.learnings[i];
   if (!l) return;
   const cats = ['','Teknologi','Bahasa','Finansial','Kesehatan','Seni','Lainnya']
-    .map(c => `<option value="${c}" ${l.cat===c?'selected':''}>${c||'â€” Pilih kategori â€”'}</option>`).join('');
+    .map(c => `<option value="${c}" ${l.cat===c?'selected':''}>${c||'— Pilih kategori —'}</option>`).join('');
   openEditModal('Edit Sesi Belajar', `
     <label style="display:block;font-size:12px;color:var(--text3);margin-bottom:4px">Tanggal</label>
     <input id="em-l-date" type="date" value="${l.date}" style="width:100%;margin-bottom:12px">
@@ -2375,8 +2385,8 @@ function editLearning(i) {
 function _saveEditLearning(i) {
   const subject = document.getElementById('em-l-subject')?.value.trim();
   const what    = document.getElementById('em-l-what')?.value.trim();
-  if (!subject) { showToast('âš  Topik tidak boleh kosong'); return; }
-  if (!what)    { showToast('âš  Materi tidak boleh kosong'); return; }
+  if (!subject) { showToast('⚠ Topik tidak boleh kosong'); return; }
+  if (!what)    { showToast('⚠ Materi tidak boleh kosong'); return; }
   state.learnings[i].date     = document.getElementById('em-l-date')?.value || today();
   state.learnings[i].subject  = subject;
   state.learnings[i].what     = what;
@@ -2384,7 +2394,7 @@ function _saveEditLearning(i) {
   state.learnings[i].duration = document.getElementById('em-l-duration')?.value || '';
   state.learnings[i].cat      = document.getElementById('em-l-cat')?.value || '';
   saveAndSync(); renderLearnings(); updateLearningStats();
-  showToast('âœ“ Sesi belajar diupdate'); closeEditModal();
+  showToast('✓ Sesi belajar diupdate'); closeEditModal();
 }
 
 /* ============================================================
@@ -2420,7 +2430,7 @@ function exportData() {
   a.download = `trackify-backup-${date}.json`;
   a.click();
   URL.revokeObjectURL(url);
-  showToast('âœ“ Data berhasil diekspor!');
+  showToast('✓ Data berhasil diekspor!');
 }
 
 function importData(input) {
@@ -2450,7 +2460,7 @@ function importData(input) {
       if (d.checkins)    state.checkins    = d.checkins;
       syncToFirebase();
       renderAll(); updateDashboard();
-      showToast('âœ“ Data berhasil diimport!');
+      showToast('✓ Data berhasil diimport!');
     } catch(err) {
       showToast('File tidak valid: ' + err.message);
     }
@@ -2462,7 +2472,7 @@ function importData(input) {
 
 
 /* ============================================================
-   NOTIFIKASI â€” handler untuk UI di settings
+   NOTIFIKASI — handler untuk UI di settings
    ============================================================ */
 
 async function toggleMasterNotif(checkbox) {
@@ -2475,7 +2485,7 @@ async function toggleMasterNotif(checkbox) {
       checkbox.checked = false;
       showToast('Browser tidak mendukung notifikasi.');
     } else {
-      showToast('âœ“ Notifikasi diaktifkan');
+      showToast('✓ Notifikasi diaktifkan');
       setAppState(state);
     }
   } else {
@@ -2508,7 +2518,7 @@ function updateNotifAdvance(input, type) {
 
 function testNotif(type) {
   const ok = testNotification(type);
-  showToast(ok ? 'âœ“ Notifikasi test dikirim' : 'Aktifkan notifikasi terlebih dahulu');
+  showToast(ok ? '✓ Notifikasi test dikirim' : 'Aktifkan notifikasi terlebih dahulu');
 }
 
 document.addEventListener('keydown', e => {
@@ -2529,7 +2539,7 @@ document.addEventListener('DOMContentLoaded', () => {
 /* ============================================================
    EXPOSE FUNCTIONS TO WINDOW (required for ES Module scope)
    data-action="..." di HTML tidak bisa akses fungsi module secara
-   langsung â€” semua yang dipanggil dari HTML harus didaftarkan
+   langsung — semua yang dipanggil dari HTML harus didaftarkan
    ke window secara eksplisit.
    ============================================================ */
 
@@ -2604,7 +2614,7 @@ Object.assign(window, {
 });
 
 /* ============================================================
-   FILTER PANEL CHIP â€” handler untuk chip filter di panel
+   FILTER PANEL CHIP — handler untuk chip filter di panel
    ============================================================ */
 // Per-filter-group state for multi-group filtering
 const _filterState = {};
@@ -2676,7 +2686,7 @@ function _updateFilterBadge(bar) {
 }
 
 /* ============================================================
-   EVENT DELEGATION â€” menggantikan semua onclick di HTML.
+   EVENT DELEGATION — menggantikan semua onclick di HTML.
    Extension browser tidak bisa inject ke addEventListener,
    hanya ke atribut onclick. Dengan delegation ini semua klik
    ditangani dari JS murni, aman dari interference extension.
@@ -2789,13 +2799,13 @@ document.addEventListener('click', function(e) {
   const action = el.getAttribute('data-action');
   if (!action) return;
   e.stopPropagation();
-  // Jalankan action â€” kirim original event untuk stopPropagation cases
+  // Jalankan action — kirim original event untuk stopPropagation cases
   const fn = _ACTION_MAP[action];
   if (fn) {
     fn(el, e);
   } else {
     // Dynamic actions dari render (toggleTodoById, delTodo, editTodo, dll)
-    // Format: "fnName(arg)" â€” parse dan panggil dari window
+    // Format: "fnName(arg)" — parse dan panggil dari window
     const m = action.match(/^(\w+)\((.*)?\)$/);
     if (m) {
       const fnName = m[1];
@@ -2828,7 +2838,7 @@ document.addEventListener('click', function(e) {
       }
     }
   }
-}, true); // capture phase â€” sebelum extension bisa interfere
+}, true); // capture phase — sebelum extension bisa interfere
 
 // oninput untuk search
 document.addEventListener('input', function(e) {
@@ -2861,7 +2871,7 @@ document.addEventListener('keydown', function(e) {
 document.dispatchEvent(new CustomEvent('trackify-ready'));
 
 /* ============================================================
-   FILTER & SORT â€” Target
+   FILTER & SORT — Target
    ============================================================ */
 
 let _targetSort = { key: null, dir: 1 };
@@ -2908,25 +2918,23 @@ function renderTargetsFiltered() {
   if (cnt) cnt.textContent = list.length ? `Menampilkan ${list.length} dari ${state.targets.length} target` : '';
 
   if (!list.length) {
-    tb.innerHTML = `<tr><td colspan="6" style="text-align:center;border:none">${emptyHTML('ðŸŽ¯','Tidak ada target yang cocok.')}</td></tr>`;
+    tb.innerHTML = `<tr><td colspan="6" style="text-align:center;border:none">${emptyHTML('🎯','Tidak ada target yang cocok.')}</td></tr>`;
     return;
   }
 
   tb.innerHTML = list.map(t => {
     const i    = t._origIdx;
-    const dl   = t.deadline ? new Date(t.deadline + 'T00:00:00') : null;
-    const days = dl ? Math.ceil((dl - new Date()) / 86_400_000) : null;
-    const prog = t.status === 'done' ? 100 : days !== null ? Math.max(0, Math.min(85, 100 - days * 2)) : 30;
+    const prog = getTargetProgress(t);
     const isDone = t.status === 'done';
-    const noteSnip = t.note ? escapeHTML(t.note.slice(0, 60)) + (t.note.length > 60 ? 'â€¦' : '') : '<span style="color:var(--text3)">â€”</span>';
+    const noteSnip = t.note ? escapeHTML(t.note.slice(0, 60)) + (t.note.length > 60 ? '...' : '') : '<span style="color:var(--text3)">—</span>';
     return `<tr>
       <td data-label="Target" style="font-weight:600">${escapeHTML(t.name)}</td>
       <td data-label="Catatan" style="font-size:12px;color:var(--text2);max-width:160px">${noteSnip}</td>
-      <td data-label="Deadline" style="color:var(--text3);font-size:12px"><time datetime="${t.deadline||''}">${t.deadline||'â€”'}</time></td>
+      <td data-label="Deadline" style="color:var(--text3);font-size:12px"><time datetime="${t.deadline||''}">${t.deadline||'—'}</time></td>
       <td data-label="Status">
         <button class="status-toggle-btn ${isDone ? 'status-done' : 'status-progress'}"
                 data-action="toggleTargetStatus(${i})"
-                aria-label="Klik untuk ubah status">${isDone ? 'âœ“ Selesai' : 'Berjalan'}</button>
+                aria-label="Klik untuk ubah status">${isDone ? '✓ Selesai' : 'Berjalan'}</button>
       </td>
       <td data-label="Progress" style="min-width:120px">
         <div class="prog-label" aria-hidden="true"><span>${prog}%</span></div>
@@ -2950,7 +2958,7 @@ renderTargets = function() {
 };
 
 /* ============================================================
-   FILTER & SORT â€” Todo
+   FILTER & SORT — Todo
    ============================================================ */
 
 let _todoSort = { key: 'created', dir: -1 };
@@ -3017,7 +3025,7 @@ function renderTodosFiltered() {
 
   if (!list.length) {
     el.setAttribute('role', 'status');
-    el.innerHTML = emptyHTML('ðŸ—’ï¸', st || q || pri || cat ? 'Tidak ada tugas yang cocok.' : 'Belum ada tugas. Tambahkan sekarang!');
+    el.innerHTML = emptyHTML('🗒️', st || q || pri || cat ? 'Tidak ada tugas yang cocok.' : 'Belum ada tugas. Tambahkan sekarang!');
     return;
   }
 
@@ -3065,7 +3073,7 @@ function renderTodosFiltered() {
 renderTodo = function() { renderTodosFiltered(); };
 
 /* ============================================================
-   FILTER & SORT â€” Journal
+   FILTER & SORT — Journal
    ============================================================ */
 
 let _journalSortDir = -1; // -1 = terbaru dulu
@@ -3097,7 +3105,7 @@ function renderJournalsFiltered() {
     ? `Menampilkan ${list.length} dari ${state.journals.length} jurnal`
     : '';
 
-  if (!list.length) { el.innerHTML = emptyHTML('ðŸ“–', mood||q ? 'Tidak ada jurnal yang cocok.' : 'Belum ada jurnal.'); return; }
+  if (!list.length) { el.innerHTML = emptyHTML('📖', mood||q ? 'Tidak ada jurnal yang cocok.' : 'Belum ada jurnal.'); return; }
 
   el.innerHTML = list.map(j => {
     const i = j._origIdx;
@@ -3111,7 +3119,7 @@ function renderJournalsFiltered() {
         </div>
       </div>
       <div style="font-size:13px;color:var(--text2);line-height:1.6">
-        ${escapeHTML(j.did.slice(0,150))}${j.did.length>150?'â€¦':''}
+        ${escapeHTML(j.did.slice(0,150))}${j.did.length>150?'…':''}
       </div>
     </article>`;
   }).join('');
@@ -3122,7 +3130,7 @@ function renderJournalsFiltered() {
 renderJournals = function() { renderJournalsFiltered(); };
 
 /* ============================================================
-   FILTER & SORT â€” Learning
+   FILTER & SORT — Learning
    ============================================================ */
 
 let _learningSortDir = -1;
@@ -3156,7 +3164,7 @@ function renderLearningsFiltered() {
     ? `Menampilkan ${list.length} dari ${state.learnings.length} sesi`
     : '';
 
-  if (!list.length) { el.innerHTML = emptyHTML('ðŸ“–', cat||q ? 'Tidak ada sesi yang cocok.' : 'Belum ada sesi belajar.'); return; }
+  if (!list.length) { el.innerHTML = emptyHTML('📖', cat||q ? 'Tidak ada sesi yang cocok.' : 'Belum ada sesi belajar.'); return; }
 
   el.innerHTML = list.map(l => {
     const i = l._origIdx;
@@ -3172,9 +3180,9 @@ function renderLearningsFiltered() {
       </div>
       <div class="learning-subject">${escapeHTML(l.subject)}</div>
       <div style="font-size:13px;color:var(--text2);line-height:1.6;margin-top:4px">
-        ${escapeHTML(l.what.slice(0,180))}${l.what.length>180?'â€¦':''}
+        ${escapeHTML(l.what.slice(0,180))}${l.what.length>180?'…':''}
       </div>
-      ${l.insight ? `<div class="learning-insight">ðŸ’¡ ${escapeHTML(l.insight.slice(0,160))}${l.insight.length>160?'â€¦':''}</div>` : ''}
+      ${l.insight ? `<div class="learning-insight">💡 ${escapeHTML(l.insight.slice(0,160))}${l.insight.length>160?'…':''}</div>` : ''}
     </article>`;
   }).join('');
   setTimeout(registerAllLongPress, 60);
@@ -3184,13 +3192,13 @@ function renderLearningsFiltered() {
 renderLearnings = function() { renderLearningsFiltered(); };
 
 /* ============================================================
-   HABIT STATISTICS â€” Streak per-habit, Completion Rate, Heatmap
+   HABIT STATISTICS — Streak per-habit, Completion Rate, Heatmap
    ============================================================ */
 
 /**
  * Hitung streak berturut-turut untuk habit index hi.
  * Iterasi mundur dari hari ini; streak berhenti jika ada hari
- * yang 'none' (tidak tercatat done) â€” 'skip' tidak memutus streak
+ * yang 'none' (tidak tercatat done) — 'skip' tidak memutus streak
  * tapi juga tidak menambah.
  */
 function calcHabitStreak(hi) {
@@ -3202,9 +3210,9 @@ function calcHabitStreak(hi) {
     if (val === 'done') {
       streak++;
     } else if (val === 'skip') {
-      // skip tidak memutus, tidak menambah â€” lanjut
+      // skip tidak memutus, tidak menambah — lanjut
     } else {
-      // none atau tidak ada â€” putus streak (kecuali hari ini belum diisi)
+      // none atau tidak ada — putus streak (kecuali hari ini belum diisi)
       if (i === 0) { d.setDate(d.getDate() - 1); continue; }
       break;
     }
@@ -3383,8 +3391,8 @@ function initHeatmapTooltip() {
       const date   = cell.dataset.date;
       const status = cell.dataset.status;
       const isToday = cell.dataset.today === 'true';
-      const label  = status === 'done' ? 'âœ“ Selesai' : status === 'skip' ? 'âœ• Dilewati' : 'â€” Kosong';
-      tooltip.textContent = `${date}  ${label}${isToday ? '  Â· Hari ini' : ''}`;
+      const label  = status === 'done' ? '✓ Selesai' : status === 'skip' ? '✕ Dilewati' : '— Kosong';
+      tooltip.textContent = `${date}  ${label}${isToday ? '  · Hari ini' : ''}`;
       tooltip.classList.add('show');
       tooltip.setAttribute('aria-hidden', 'false');
     });
@@ -3401,8 +3409,8 @@ function initHeatmapTooltip() {
       const date   = cell.dataset.date;
       const status = cell.dataset.status;
       const isToday = cell.dataset.today === 'true';
-      const label  = status === 'done' ? 'âœ“ Selesai' : status === 'skip' ? 'âœ• Dilewati' : 'â€” Kosong';
-      tooltip.textContent = `${date}  ${label}${isToday ? '  Â· Hari ini' : ''}`;
+      const label  = status === 'done' ? '✓ Selesai' : status === 'skip' ? '✕ Dilewati' : '— Kosong';
+      tooltip.textContent = `${date}  ${label}${isToday ? '  · Hari ini' : ''}`;
       tooltip.classList.add('show');
       const rect = cell.getBoundingClientRect();
       tooltip.style.left = (rect.right + 6) + 'px';

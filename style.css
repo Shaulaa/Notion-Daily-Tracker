@@ -107,16 +107,16 @@ body {
 }
 
 .sidebar-logo {
-  padding: 22px 20px 18px;
+  padding: 14px 20px 12px;
   border-bottom: 1px solid var(--border);
 }
-.sidebar-logo .logo-mark { display: flex; align-items: center; gap: 10px; }
+.sidebar-logo .logo-mark { display: flex; align-items: center; gap: 8px; }
 .logo-icon {
-  width: 54px; height: 54px;
+  width: 46px; height: 46px;
   background: transparent;
   border-radius: 0;
   display: flex; align-items: center; justify-content: center;
-  font-size: 18px;
+  font-size: 17px;
   flex-shrink: 0;
 }
 img[alt="Trackify logo"] {
@@ -125,8 +125,8 @@ img[alt="Trackify logo"] {
 }
 .theme-logo-svg {
   display: block;
-  width: 54px;
-  height: 54px;
+  width: 46px;
+  height: 46px;
 }
 [data-theme="dark"] .topbar-logo .theme-logo-svg {
   width: 32px;

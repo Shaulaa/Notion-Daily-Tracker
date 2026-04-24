@@ -111,6 +111,8 @@ onAuthChange((user) => {
     if (triggerIcon) { triggerIcon.innerHTML = '<svg width="16" height="16" style="color:var(--accent)"><use href="#logo-trackify"/></svg>'; triggerIcon.style.background = 'var(--accent-glow)'; }
     const triggerLabel = document.getElementById("auth-trigger-label");
     if (triggerLabel) triggerLabel.textContent = 'Akun';
+    // Reset tampilan ke state kosong saat logout
+    clearAllDisplays();
   }
 });
 
@@ -120,6 +122,7 @@ onAuthChange((user) => {
 
 async function loadAllData() {
   if (!getCurrentUser()) return;
+  setLoadingOverlay(true);
   try {
     const [
       journals, reflections, sosials, emosis, menstruasis,
@@ -177,6 +180,8 @@ async function loadAllData() {
   } catch (e) {
     console.error('[Trackify] loadAllData error:', e);
     showToast('⚠ Gagal memuat data: ' + e.message);
+  } finally {
+    setLoadingOverlay(false);
   }
 }
 
@@ -353,11 +358,25 @@ async function syncHabits() {
   await replaceCollection('habits', itemsWithId);
 }
 
-/** saveState + sync ke Firebase */
+/** saveState + sync ke Firebase (debounced 800ms agar tidak terpotong refresh) */
+let _syncTimer = null;
 function saveAndSync() {
   saveState();
-  syncToFirebase(); // intentionally not awaited
+  clearTimeout(_syncTimer);
+  _syncTimer = setTimeout(() => {
+    _syncTimer = null;
+    syncToFirebase();
+  }, 800);
 }
+
+/** Flush sync terakhir saat tab/browser mau ditutup */
+window.addEventListener('beforeunload', () => {
+  if (_syncTimer) {
+    clearTimeout(_syncTimer);
+    _syncTimer = null;
+    syncToFirebase();
+  }
+});
 
 /* ============================================================
    3. INISIALISASI
@@ -378,7 +397,7 @@ function initApp() {
 
   applyTheme(state.theme);
   setDefaultFormDates();
-  renderAll();
+  // Jangan renderAll() di sini — data kosong sampai Firebase load via onAuthChange
   renderDashboardDate();
   initNotifications();
 }
@@ -583,6 +602,36 @@ function closeSidebar() {
   document.getElementById('hamburger')?.classList.remove('open');
   document.getElementById('overlay')?.classList.remove('show');
   document.getElementById('hamburger')?.setAttribute('aria-expanded', 'false');
+}
+
+// Loading overlay — ditampilkan saat fetch Firebase berlangsung
+function setLoadingOverlay(visible) {
+  let el = document.getElementById('trackify-loading-overlay');
+  if (!el) {
+    el = document.createElement('div');
+    el.id = 'trackify-loading-overlay';
+    el.style.cssText = [
+      'position:fixed','inset:0','z-index:9999',
+      'background:var(--bg1,#0f0f13)','display:flex',
+      'align-items:center','justify-content:center',
+      'flex-direction:column','gap:12px',
+      'transition:opacity .25s ease','pointer-events:none'
+    ].join(';');
+    el.innerHTML = `
+      <svg width="40" height="40" viewBox="0 0 40 40" fill="none" style="animation:trackify-spin 1s linear infinite">
+        <circle cx="20" cy="20" r="16" stroke="var(--accent,.6rem)" stroke-width="3" stroke-dasharray="80 20" stroke-linecap="round"/>
+      </svg>
+      <span style="font-size:13px;color:var(--text3,#888)">Memuat data…</span>
+      <style>@keyframes trackify-spin{to{transform:rotate(360deg)}}</style>`;
+    document.body.appendChild(el);
+  }
+  if (visible) {
+    el.style.opacity = '1';
+    el.style.pointerEvents = 'all';
+  } else {
+    el.style.opacity = '0';
+    el.style.pointerEvents = 'none';
+  }
 }
 
 // Toast
@@ -2565,8 +2614,6 @@ document.addEventListener('keydown', e => {
    ============================================================ */
 
 document.addEventListener('DOMContentLoaded', () => {
-  // Hapus data localStorage lama (migrasi ke Firebase-only)
-  try { localStorage.removeItem('Trackify_v1'); } catch(e) {}
   initApp();
 });
 

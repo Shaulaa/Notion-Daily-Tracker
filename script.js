@@ -145,7 +145,9 @@ async function loadAllData() {
     state.menstruasis  = menstruasis.map(m => ({ start: m.startDate || m.start, end: m.endDate || m.end, flow: m.intensity || m.flow || 'sedang', symptoms: m.symptoms || [], mood: m.mood || '', note: m.notes || m.note || '' }));
     state.learnings    = learnings.map(l => ({ date: l.date, subject: l.topic || l.subject || '', what: l.content || l.what || '', insight: l.insight || '', duration: l.duration || '', cat: l.category || l.cat || '' }));
     state.targets      = targets.map(t => ({ _id: t.id, name: t.name || '', deadline: t.deadline || '', status: t.status || 'on_progress' }));
-    state.todos        = todos.map((t, i) => ({ id: t.id || i + 1, text: t.text || '', done: !!t.done, createdAt: t.createdAt, dueDate: t.date || '', dueTime: t.time || '' }));
+    state.todos        = todos.map((t, i) => ({ id: t.id || i + 1, text: t.text || '', done: !!t.done, createdAt: t.createdAt, dueDate: t.date || '', dueTime: t.time || '', priority: t.priority || 'medium', category: t.category || '' }));
+    // Restore _nextId agar todo baru tidak dapat ID yang bentrok dengan yang sudah ada
+    state._nextId = state.todos.reduce((max, t) => Math.max(max, Number(t.id) || 0), 0) + 1;
     state.habits       = habits.map(h => h.name);
 
     state.habitData = {};
@@ -324,7 +326,8 @@ async function syncToFirebase() {
         name: t.name, deadline: t.deadline, status: t.status
       }))),
       syncCollection('todos', state.todos.map(t => ({
-        text: t.text, done: t.done, date: t.dueDate, time: t.dueTime
+        text: t.text, done: t.done, date: t.dueDate, time: t.dueTime,
+        priority: t.priority || 'medium', category: t.category || ''
       }))),
       syncHabits(),
       updateStreak({

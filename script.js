@@ -37,6 +37,7 @@
 import {
   loginWithGoogle, logoutUser, onAuthChange, getCurrentUser,
   addItem, getItems, updateItem, deleteItem, deleteAllItems,
+  replaceCollection,
   getStreak, updateStreak, achieveMilestone
 } from './firebase.js';
 
@@ -147,14 +148,24 @@ async function loadAllData() {
     state.habits       = habits.map(h => h.name);
 
     state.habitData = {};
-    const allHabitDates = new Set([today()]);
     habits.forEach((h, hi) => {
       (h.dates || []).forEach(date => {
         state.habitData[`${date}_${hi}`] = 'done';
-        allHabitDates.add(date);
       });
     });
-    habitRows = Array.from(allHabitDates).sort();
+
+    // Restore habitRows dari Firebase (disimpan di streak/data).
+    // Fallback: kumpulkan dari tanggal yang pernah di-done, atau minimal hari ini.
+    if (streakData.habitRows && streakData.habitRows.length) {
+      habitRows = [...streakData.habitRows].sort();
+      // Pastikan hari ini selalu ada jika belum
+      const td = today();
+      if (!habitRows.includes(td)) habitRows.push(td), habitRows.sort();
+    } else {
+      const allDates = new Set([today()]);
+      habits.forEach(h => (h.dates || []).forEach(d => allDates.add(d)));
+      habitRows = Array.from(allDates).sort();
+    }
 
     state.streak      = streakData.currentStreak || 0;
     state.lastCheckin = streakData.lastCheckIn || '';
@@ -316,7 +327,8 @@ async function syncToFirebase() {
       updateStreak({
         currentStreak: state.streak,
         lastCheckIn: state.lastCheckin,
-        checkIns: state.checkins.map(c => c.date)
+        checkIns: state.checkins.map(c => c.date),
+        habitRows: habitRows
       })
     ]);
   } catch (e) {
@@ -325,18 +337,20 @@ async function syncToFirebase() {
 }
 
 async function syncCollection(colName, items) {
-  await deleteAllItems(colName);
-  await Promise.all(items.map(item => addItem(colName, item)));
+  // Tiap item diberi _docId deterministik berdasarkan index,
+  // sehingga upsert tidak pernah menghasilkan duplikat.
+  const itemsWithId = items.map((item, i) => ({ _docId: String(i), ...item }));
+  await replaceCollection(colName, itemsWithId);
 }
 
 async function syncHabits() {
-  await deleteAllItems('habits');
-  await Promise.all(state.habits.map((name, hi) => {
+  const itemsWithId = state.habits.map((name, hi) => {
     const dates = Object.entries(state.habitData)
       .filter(([k, v]) => k.endsWith(`_${hi}`) && v === 'done')
       .map(([k]) => k.split('_')[0]);
-    return addItem('habits', { name, dates });
-  }));
+    return { _docId: String(hi), name, dates };
+  });
+  await replaceCollection('habits', itemsWithId);
 }
 
 /** saveState + sync ke Firebase */

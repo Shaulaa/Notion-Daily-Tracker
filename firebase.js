@@ -148,6 +148,47 @@ export async function deleteAllItems(colName) {
   await Promise.all(snapshot.docs.map(d => deleteDoc(d.ref)));
 }
 
+/**
+ * Upsert item dengan ID deterministik (tidak pernah duplikat)
+ * @param {string} colName
+ * @param {string} docId  - ID unik yang stabil (misal index atau hash)
+ * @param {object} data
+ */
+export async function setItem(colName, docId, data) {
+  await setDoc(userDocRef(colName, docId), {
+    ...data,
+    updatedAt: serverTimestamp()
+  }, { merge: false });
+}
+
+/**
+ * Ganti seluruh koleksi secara atomik dengan data baru.
+ * Strategi: hapus doc yang tidak ada di newItems, upsert sisanya.
+ * Tidak pernah menghasilkan duplikat karena pakai ID deterministik.
+ * @param {string} colName
+ * @param {Array<object>} newItems  - tiap item harus punya field _docId
+ */
+export async function replaceCollection(colName, newItems) {
+  const snapshot = await getDocs(userCol(colName));
+  const existingIds = new Set(snapshot.docs.map(d => d.id));
+  const newIds      = new Set(newItems.map(item => item._docId));
+
+  // Hapus doc yang sudah tidak ada di data baru
+  const toDelete = [...existingIds].filter(id => !newIds.has(id));
+  // Upsert semua item baru
+  await Promise.all([
+    ...toDelete.map(id => deleteDoc(userDocRef(colName, id))),
+    ...newItems.map(({ _docId, ...data }) => {
+      const isNew = !existingIds.has(_docId);
+      return setDoc(
+        userDocRef(colName, _docId),
+        { ...data, updatedAt: serverTimestamp(), ...(isNew ? { createdAt: serverTimestamp() } : {}) },
+        { merge: false }
+      );
+    })
+  ]);
+}
+
 // ============================================================
 // STREAK & REWARD
 // ============================================================

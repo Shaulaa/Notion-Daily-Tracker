@@ -52,6 +52,7 @@ import {
 // ============================================================
 
 // Pantau perubahan auth state
+let _lastLoadedUid = null;
 onAuthChange((user) => {
   if (user) {
     // Mobile topbar
@@ -90,8 +91,13 @@ onAuthChange((user) => {
     if (dropName)   dropName.textContent = user.displayName || '';
     if (dropEmail)  dropEmail.textContent = user.email || '';
 
-    loadAllData();
+    // Hanya load data jika user berbeda atau belum pernah load
+    if (_lastLoadedUid !== user.uid) {
+      _lastLoadedUid = user.uid;
+      loadAllData();
+    }
   } else {
+    _lastLoadedUid = null;
     // Mobile topbar
     document.getElementById("auth-logged-out").style.display = "block";
     document.getElementById("auth-logged-in").style.display = "none";
@@ -141,11 +147,14 @@ async function loadAllData() {
     state.habits       = habits.map(h => h.name);
 
     state.habitData = {};
+    const allHabitDates = new Set([today()]);
     habits.forEach((h, hi) => {
       (h.dates || []).forEach(date => {
         state.habitData[`${date}_${hi}`] = 'done';
+        allHabitDates.add(date);
       });
     });
+    habitRows = Array.from(allHabitDates).sort();
 
     state.streak      = streakData.currentStreak || 0;
     state.lastCheckin = streakData.lastCheckIn || '';
@@ -439,7 +448,7 @@ function toggleTheme() {
   const next = state.theme === 'dark' ? 'light' : 'dark';
   applyTheme(next);
   try { localStorage.setItem('Trackify_theme', next); } catch(e) {}
-  showToast(next === 'dark' ? 'Mode Gelap aktif' : 'Mode Terang aktif');
+  showToast(next === 'dark' ? '✓ Mode Gelap aktif' : '✓ Mode Terang aktif');
   setTimeout(renderDashboardCharts, 50);
 }
 
@@ -664,8 +673,9 @@ function updateDashboard() {
   setText('d-target', `${doneTgt}/${state.targets.length}`);
 
   const totalChecks = habitRows.length * state.habits.length;
-  const doneChecks  = Object.values(state.habitData).filter(v => v === 'done').length;
-  setText('d-habit', totalChecks ? `${Math.round(doneChecks / totalChecks * 100)}%` : '0%');
+  const doneChecks  = habitRows.reduce((sum, row) =>
+    sum + state.habits.filter((_, hi) => state.habitData[`${row}_${hi}`] === 'done').length, 0);
+  setText('d-habit', totalChecks ? `${Math.min(100, Math.round(doneChecks / totalChecks * 100))}%` : '0%');
 
   const doneTodos = state.todos.filter(t => t.done).length;
   setText('d-todo', `${doneTodos}/${state.todos.length}`);
@@ -955,11 +965,11 @@ function addTarget() {
   const deadline = document.getElementById('t-deadline')?.value;
   const status   = document.getElementById('t-status')?.value;
   const note     = document.getElementById('t-note')?.value.trim() || '';
-  if (!name) { showToast('Nama target tidak boleh kosong'); document.getElementById('t-name')?.focus(); return; }
+  if (!name) { showToast('⚠ Nama target tidak boleh kosong'); document.getElementById('t-name')?.focus(); return; }
   state.targets.push({ name, deadline, status: status || 'on_progress', note });
   clearFields('t-name','t-deadline','t-note');
   saveAndSync(); renderTargets(); updateDashboard();
-  showToast('Target berhasil ditambahkan');
+  showToast('✓ Target berhasil ditambahkan');
 }
 
 function delTarget(i) {
@@ -967,14 +977,14 @@ function delTarget(i) {
   if (!konfirmasiHapus(`target "${state.targets[i].name}"`)) return;
   state.targets.splice(i, 1);
   saveAndSync(); renderTargets(); updateDashboard();
-  showToast('Target dihapus');
+  showToast('🗑️ Target dihapus');
 }
 
 function toggleTargetStatus(i) {
   if (!state.targets[i]) return;
   state.targets[i].status = state.targets[i].status === 'done' ? 'on_progress' : 'done';
   saveAndSync(); renderTargets(); updateDashboard();
-  showToast(state.targets[i].status === 'done' ? 'Target ditandai selesai' : 'Target kembali on progress');
+  showToast(state.targets[i].status === 'done' ? '✓ Target ditandai selesai' : 'ℹ Target kembali on progress');
 }
 
 function getTargetProgress(target) {
@@ -1086,7 +1096,7 @@ function delHabit(i) {
   if (!state.habits[i]) return;
   clearTimeout(_habitDelTimer);
   if (!konfirmasiHapus(`habit "${state.habits[i]}"`)) return;
-  state.habits.splice(i, 1); saveAndSync(); renderHabit(); showToast('Habit dihapus');
+  state.habits.splice(i, 1); saveAndSync(); renderHabit(); showToast('🗑️ Habit dihapus');
 }
 
 /** Tap nama kolom habit → toggle tampil/sembunyi ikon sampah
@@ -1160,7 +1170,7 @@ function delTodoById(id) {
   if (idx === -1) return;
   if (!konfirmasiHapus(`tugas "${state.todos[idx].text}"`)) return;
   state.todos.splice(idx, 1);
-  saveAndSync(); renderTodo(); updateDashboard(); showToast('Tugas dihapus');
+  saveAndSync(); renderTodo(); updateDashboard(); showToast('🗑️ Tugas dihapus');
 }
 
 function addTodo() {
@@ -1207,14 +1217,14 @@ function saveJournal() {
   const good    = document.getElementById('j-good')?.value.trim()    || '';
   const improve = document.getElementById('j-improve')?.value.trim() || '';
   const mood    = document.getElementById('j-mood')?.value || '';
-  if (!did) { showToast('Isi kolom Aktivitas terlebih dahulu'); document.getElementById('j-did')?.focus(); return; }
+  if (!did) { showToast('⚠ Isi kolom Aktivitas terlebih dahulu'); document.getElementById('j-did')?.focus(); return; }
   state.journals.unshift({ date, did, good, improve, mood });
   clearFields('j-did','j-good','j-improve');
   const moodEl = document.getElementById('j-mood');
   if (moodEl) moodEl.value = '';
   state.selectedMood = '';
   saveAndSync(); renderJournals(); updateDashboard(); updateRewardPage();
-  showToast('Jurnal tersimpan');
+  showToast('✓ Jurnal tersimpan');
 }
 
 function renderJournals() {
@@ -1241,7 +1251,7 @@ function renderJournals() {
 function delJournal(i) {
   if (!konfirmasiHapus('jurnal ini')) return;
   state.journals.splice(i, 1); saveAndSync(); renderJournals(); updateDashboard(); updateRewardPage();
-  showToast('Jurnal dihapus');
+  showToast('🗑️ Jurnal dihapus');
 }
 
 /* ============================================================
@@ -1284,7 +1294,7 @@ function renderReflections() {
 function delReflection(i) {
   if (!konfirmasiHapus('refleksi ini')) return;
   state.reflections.splice(i, 1); saveAndSync(); renderReflections();
-  showToast('Refleksi dihapus');
+  showToast('🗑️ Refleksi dihapus');
 }
 
 /* ============================================================
@@ -1326,7 +1336,7 @@ function renderSosials() {
 function delSosial(i) {
   if (!konfirmasiHapus('catatan sosial ini')) return;
   state.sosials.splice(i, 1); saveAndSync(); renderSosials();
-  showToast('Catatan sosial dihapus');
+  showToast('🗑️ Catatan sosial dihapus');
 }
 
 /* ============================================================
@@ -1370,7 +1380,7 @@ function renderEmosi() {
 
 function delEmosi(i) {
   if (!konfirmasiHapus('catatan emosi ini')) return;
-  state.emosis.splice(i, 1); saveAndSync(); renderEmosi(); showToast('Catatan emosi dihapus');
+  state.emosis.splice(i, 1); saveAndSync(); renderEmosi(); showToast('🗑️ Catatan emosi dihapus');
 }
 
 /* ============================================================
@@ -1400,7 +1410,7 @@ function claimDailyStreak() {
     const [icon, title, desc] = MILESTONES[s];
     showRewardModal(icon, null, title, desc);
   } else {
-    showToast(`Check-in berhasil! Streak: ${s} hari`);
+    showToast(`✓ Check-in berhasil! Streak: ${s} hari 🔥`);
   }
 }
 
@@ -1489,7 +1499,7 @@ function saveLearning() {
   document.querySelectorAll('#cat-chips .cat-chip').forEach(b => { b.classList.remove('sel'); b.setAttribute('aria-pressed','false'); });
   selectedCat = ''; state.selectedCat = '';
   saveAndSync(); renderLearnings(); updateLearningStats(); updateRewardPage();
-  showToast('Sesi belajar tersimpan!');
+  showToast('✓ Sesi belajar tersimpan!');
 }
 
 function renderLearnings() {
@@ -1520,7 +1530,7 @@ function delLearning(i) {
   if (!state.learnings[i]) return;
   if (!konfirmasiHapus(`sesi belajar "${state.learnings[i].subject}"`)) return;
   state.learnings.splice(i, 1);
-  saveAndSync(); renderLearnings(); updateLearningStats(); showToast('Sesi belajar dihapus');
+  saveAndSync(); renderLearnings(); updateLearningStats(); showToast('🗑️ Sesi belajar dihapus');
 }
 
 function updateLearningStats() {
@@ -1560,7 +1570,7 @@ const MOOD_LABEL = {
   baik: 'Baik', biasa: 'Biasa', sensitif: 'Sensitif',
   mudah_marah: 'Mudah Marah', cemas: 'Cemas', depresi: 'Depresi'
 };
-const _DROP = `<svg width="14" height="16" viewBox="0 0 512 512" fill="none" stroke="currentColor" stroke-miterlimit="10" style="vertical-align:middle;display:inline-block"><path d="M400,320c0,88.37-55.63,144-144,144S112,408.37,112,320c0-94.83,103.23-222.85,134.89-259.88a12,12,0,0,1,18.23,0C296.77,97.15,400,225.17,400,320Z" stroke-width="48" vector-effect="non-scaling-stroke"/><path d="M344,328a72,72,0,0,1-72,72" stroke-linecap="round" stroke-linejoin="round" stroke-width="48" vector-effect="non-scaling-stroke"/></svg>`;
+const _DROP = `<svg width="10" height="14" viewBox="0 0 10 14" fill="currentColor" style="vertical-align:middle;display:inline-block"><path d="M5 0 C5 0 0 5.5 0 8.5 A5 5 0 0 0 10 8.5 C10 5.5 5 0 5 0Z"/></svg>`;
 const FLOW_LABEL = {
   ringan: `<span class="flow-indicator flow-ringan" title="Ringan">${_DROP}</span>`,
   sedang: `<span class="flow-indicator flow-sedang" title="Sedang">${_DROP}${_DROP}</span>`,
@@ -1587,8 +1597,8 @@ function addMenstruasi() {
   const mood  = document.getElementById('mens-mood')?.value || '';
   const note  = document.getElementById('mens-note')?.value?.trim() || '';
 
-  if (!start) { showToast('Isi tanggal mulai haid'); return; }
-  if (end && end < start) { showToast('Tanggal selesai tidak boleh sebelum mulai'); return; }
+  if (!start) { showToast('⚠ Isi tanggal mulai haid'); return; }
+  if (end && end < start) { showToast('⚠ Tanggal selesai tidak boleh sebelum mulai'); return; }
 
   state.menstruasis.unshift({ start, end, flow, symptoms: [..._selectedSymptoms], mood, note });
   saveAndSync();
@@ -1602,14 +1612,14 @@ function addMenstruasi() {
   document.querySelectorAll('.symptom-tag.active').forEach(b => b.classList.remove('active'));
 
   renderMenstruasi();
-  showToast('Siklus berhasil disimpan!');
+  showToast('✓ Siklus berhasil disimpan!');
 }
 
 function delMenstruasi(i) {
   if (!konfirmasiHapus('siklus ini')) return;
   state.menstruasis.splice(i, 1);
   saveAndSync(); renderMenstruasi();
-  showToast('Siklus dihapus');
+  showToast('🗑️ Siklus dihapus');
 }
 
 function getMensStats() {
@@ -2204,7 +2214,7 @@ function editTarget(i) {
 }
 function _saveEditTarget(i) {
   const name = document.getElementById('em-t-name')?.value.trim();
-  if (!name) { showToast('Nama target tidak boleh kosong'); return; }
+  if (!name) { showToast('⚠ Nama target tidak boleh kosong'); return; }
   state.targets[i].name     = name;
   state.targets[i].deadline = document.getElementById('em-t-deadline')?.value || '';
   state.targets[i].status   = document.getElementById('em-t-status')?.value || 'on_progress';
@@ -2462,7 +2472,7 @@ function importData(input) {
       renderAll(); updateDashboard();
       showToast('✓ Data berhasil diimport!');
     } catch(err) {
-      showToast('File tidak valid: ' + err.message);
+      showToast('⚠ File tidak valid: ' + err.message);
     }
     input.value = '';
   };
@@ -2480,17 +2490,17 @@ async function toggleMasterNotif(checkbox) {
     const status = await enableNotifications();
     if (status === 'denied') {
       checkbox.checked = false;
-      showToast('Izin notifikasi ditolak. Aktifkan di pengaturan browser.');
+      showToast('⚠ Izin notifikasi ditolak. Aktifkan di pengaturan browser.');
     } else if (status === 'unsupported') {
       checkbox.checked = false;
-      showToast('Browser tidak mendukung notifikasi.');
+      showToast('⚠ Browser tidak mendukung notifikasi.');
     } else {
       showToast('✓ Notifikasi diaktifkan');
       setAppState(state);
     }
   } else {
     disableNotifications();
-    showToast('Notifikasi dimatikan');
+    showToast('✓ Notifikasi dimatikan');
   }
   renderNotifSettings();
 }
@@ -2518,7 +2528,7 @@ function updateNotifAdvance(input, type) {
 
 function testNotif(type) {
   const ok = testNotification(type);
-  showToast(ok ? '✓ Notifikasi test dikirim' : 'Aktifkan notifikasi terlebih dahulu');
+  showToast(ok ? '✓ Notifikasi test dikirim' : '⚠ Aktifkan notifikasi terlebih dahulu');
 }
 
 document.addEventListener('keydown', e => {
@@ -2600,15 +2610,15 @@ Object.assign(window, {
   handleLogin: async () => {
     try {
       const user = await loginWithGoogle();
-      showToast("Login berhasil! Selamat datang, " + user.displayName);
+      showToast("✓ Login berhasil! Selamat datang, " + user.displayName);
       loadAllData();
     } catch (e) {
-      showToast("Login gagal: " + e.message);
+      showToast("⚠ Login gagal: " + e.message);
     }
   },
   handleLogout: async () => {
     await logoutUser();
-    showToast("Berhasil logout");
+    showToast("✓ Berhasil logout");
     clearAllDisplays();
   },
 });

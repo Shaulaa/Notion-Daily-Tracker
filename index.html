@@ -737,7 +737,9 @@
       </section>
       <section class="card" aria-label="Distribusi mood emosi">
         <div class="card-title"><svg width="14" height="14" style="vertical-align:-2px;margin-right:6px;color:#fbbf24"><use href="#icon-emosi"/></svg>Distribusi Mood</div>
-        <canvas id="chart-mood-dist" height="160" aria-label="Grafik distribusi mood"></canvas>
+        <div class="chart-donut-wrap">
+          <canvas id="chart-mood-dist" class="donut-canvas" aria-label="Grafik distribusi mood"></canvas>
+        </div>
         <div id="chart-mood-dist-empty" style="display:none;text-align:center;padding:20px 0;color:var(--text3);font-size:13px">Belum ada data emosi</div>
       </section>
     </div>
@@ -745,7 +747,9 @@
     <div class="grid2" style="margin-top:16px">
       <section class="card" aria-label="Status target hidup">
         <div class="card-title"><svg width="14" height="14" style="vertical-align:-2px;margin-right:6px;color:#a78bfa"><use href="#icon-target"/></svg>Status Target</div>
-        <canvas id="chart-target-status" height="160" aria-label="Grafik status target"></canvas>
+        <div class="chart-donut-wrap">
+          <canvas id="chart-target-status" class="donut-canvas" aria-label="Grafik status target"></canvas>
+        </div>
         <div id="chart-target-status-empty" style="display:none;text-align:center;padding:20px 0;color:var(--text3);font-size:13px">Belum ada target</div>
       </section>
       <section class="card" aria-label="Sesi belajar 7 hari">

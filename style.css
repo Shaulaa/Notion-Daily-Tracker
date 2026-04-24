@@ -2073,11 +2073,24 @@ th:hover .edit-btn {
   }
 }
 
-/* ── Dashboard charts: min height ── */
-#page-dashboard canvas {
+/* ── Dashboard charts: height untuk bar & line ── */
+#page-dashboard canvas:not(.donut-canvas) {
   display: block;
   width: 100% !important;
   height: 160px !important;
+}
+
+/* ── Donut charts: square fixed size ── */
+.chart-donut-wrap {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  margin: 4px auto 0;
+}
+canvas.donut-canvas {
+  display: block !important;
+  width: 200px !important;
+  height: 200px !important;
 }
 
 /* ── Target: catatan column truncate ── */

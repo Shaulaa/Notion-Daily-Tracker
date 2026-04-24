@@ -858,9 +858,15 @@ function renderDashboardCharts() {
     const colors = labels.map(l => moodColors[l] || accent);
     _chartInstances[id] = new Chart(canvas, {
       type: 'doughnut',
-      data: { labels, datasets: [{ data, backgroundColor: colors.map(c => c + 'cc'), borderColor: colors, borderWidth: 1.5 }] },
-      options: { responsive: true, maintainAspectRatio: false, cutout: '55%',
-        plugins: { legend: { position: 'right', labels: { color: text2, font: { family: "'Plus Jakarta Sans',sans-serif", size: 11 }, boxWidth: 12, padding: 8 } } }
+      data: { labels, datasets: [{ data, backgroundColor: colors.map(c => c + 'cc'), borderColor: colors, borderWidth: 2, hoverOffset: 6 }] },
+      options: {
+        responsive: false,
+        maintainAspectRatio: true,
+        aspectRatio: 1,
+        cutout: '62%',
+        plugins: {
+          legend: { position: 'bottom', labels: { color: text2, font: { family: "'Plus Jakarta Sans',sans-serif", size: 11 }, boxWidth: 10, padding: 10 } }
+        }
       }
     });
   })();
@@ -885,12 +891,16 @@ function renderDashboardCharts() {
       type: 'doughnut',
       data: {
         labels: ['Selesai', 'Berjalan'],
-        datasets: [{ data: [done, prog], backgroundColor: [green + 'cc', amber + 'cc'], borderColor: [green, amber], borderWidth: 1.5 }]
+        datasets: [{ data: [done, prog], backgroundColor: [green + 'cc', amber + 'cc'], borderColor: [green, amber], borderWidth: 2, hoverOffset: 6 }]
       },
-      options: { responsive: true, maintainAspectRatio: false, cutout: '60%',
+      options: {
+        responsive: false,
+        maintainAspectRatio: true,
+        aspectRatio: 1,
+        cutout: '62%',
         plugins: {
-          legend: { position: 'bottom', labels: { color: text2, font: { family: "'Plus Jakarta Sans',sans-serif", size: 11 }, boxWidth: 12 } },
-          title: { display: true, text: `${done} selesai dari ${state.targets.length}`, color: text2, font: { size: 12 } }
+          legend: { position: 'bottom', labels: { color: text2, font: { family: "'Plus Jakarta Sans',sans-serif", size: 11 }, boxWidth: 10, padding: 10 } },
+          title: { display: true, text: `${done} selesai dari ${state.targets.length}`, color: text2, font: { size: 12 }, padding: { bottom: 4 } }
         }
       }
     });

@@ -111,8 +111,6 @@ onAuthChange((user) => {
     if (triggerIcon) { triggerIcon.innerHTML = '<svg width="16" height="16" style="color:var(--accent)"><use href="#logo-trackify"/></svg>'; triggerIcon.style.background = 'var(--accent-glow)'; }
     const triggerLabel = document.getElementById("auth-trigger-label");
     if (triggerLabel) triggerLabel.textContent = 'Akun';
-    // Reset tampilan ke state kosong saat logout
-    clearAllDisplays();
   }
 });
 
@@ -139,26 +137,6 @@ async function loadAllData() {
       getItems('habits', 'createdAt'),
       getStreak()
     ]);
-
-    // Hitung total item dari Firebase
-    const totalFromFirebase = journals.length + reflections.length + sosials.length +
-      emosis.length + menstruasis.length + learnings.length +
-      targets.length + todos.length + habits.length;
-
-    // Kalau Firebase kosong semua tapi localStorage sudah ada data,
-    // berarti sync belum pernah jalan atau Firebase gagal — jangan overwrite.
-    // Langsung sync ulang localStorage ke Firebase sebagai gantinya.
-    const hasLocalData = (
-      state.journals.length || state.reflections.length || state.sosials.length ||
-      state.emosis.length || state.menstruasis.length || state.learnings.length ||
-      state.targets.length || state.todos.length || state.habits.length
-    );
-    if (totalFromFirebase === 0 && hasLocalData) {
-      showToast('↑ Mengupload data lokal ke cloud…');
-      await syncToFirebase();
-      showToast('✓ Data lokal berhasil diupload ke cloud');
-      return;
-    }
 
     state.journals     = journals.map(j => ({ date: j.date, did: j.activity || j.did || '', good: j.positive || j.good || '', improve: j.improve || '', mood: j.mood || '' }));
     state.reflections  = reflections.map(r => ({ date: r.date, grow: r.growth || r.grow || '', lack: r.lacking || r.lack || '', plan: r.plan || '' }));
@@ -378,45 +356,31 @@ async function syncHabits() {
   await replaceCollection('habits', itemsWithId);
 }
 
-/** saveState + sync ke Firebase (debounced 800ms agar tidak terpotong refresh) */
-let _syncTimer = null;
+/** saveState + sync ke Firebase */
 function saveAndSync() {
   saveState();
-  clearTimeout(_syncTimer);
-  _syncTimer = setTimeout(() => {
-    _syncTimer = null;
-    syncToFirebase();
-  }, 800);
+  syncToFirebase(); // intentionally not awaited
 }
-
-/** Pastikan localStorage selalu up-to-date saat tab ditutup.
- *  Firebase async tidak reliable di beforeunload, tapi localStorage sync — aman. */
-window.addEventListener('beforeunload', () => {
-  clearTimeout(_syncTimer);
-  _syncTimer = null;
-  // localStorage pasti tersimpan (synchronous), Firebase best-effort
-  saveState();
-});
 
 /* ============================================================
    3. INISIALISASI
    ============================================================ */
 
 function initApp() {
-  // Load dari localStorage dulu supaya data langsung tampil tanpa tunggu Firebase
-  const saved = StorageManager.load();
-  if (saved) {
-    state     = { ...createDefaultState(), ...saved };
-    habitRows = saved.habitRows || [today()];
-  } else {
-    state     = createDefaultState();
-    habitRows = [today()];
-  }
+  // Selalu mulai dari state kosong — data diambil dari Firebase saat login
+  state = createDefaultState();
+
+  // Pulihkan tema dari localStorage agar tidak flicker saat refresh
+  try {
+    const savedTheme = localStorage.getItem('Trackify_theme');
+    if (savedTheme === 'light' || savedTheme === 'dark') state.theme = savedTheme;
+  } catch(e) {}
+
+  habitRows   = [today()];
   selectedCat = '';
 
   applyTheme(state.theme);
   setDefaultFormDates();
-  // Render langsung dari localStorage — Firebase akan overwrite saat loadAllData selesai
   renderAll();
   renderDashboardDate();
   initNotifications();

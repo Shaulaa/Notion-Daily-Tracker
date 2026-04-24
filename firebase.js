@@ -175,7 +175,10 @@ export async function replaceCollection(colName, newItems) {
 
   // Hapus doc yang sudah tidak ada di data baru
   const toDelete = [...existingIds].filter(id => !newIds.has(id));
-  // Upsert semua item baru
+
+  // Pakai merge:true supaya createdAt yang sudah ada tidak ditimpa.
+  // Kalau createdAt hilang, query orderBy("createdAt") akan skip dokumen itu
+  // sehingga data seolah menghilang padahal masih ada di Firestore.
   await Promise.all([
     ...toDelete.map(id => deleteDoc(userDocRef(colName, id))),
     ...newItems.map(({ _docId, ...data }) => {
@@ -183,7 +186,7 @@ export async function replaceCollection(colName, newItems) {
       return setDoc(
         userDocRef(colName, _docId),
         { ...data, updatedAt: serverTimestamp(), ...(isNew ? { createdAt: serverTimestamp() } : {}) },
-        { merge: false }
+        { merge: true }
       );
     })
   ]);

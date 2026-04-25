@@ -15,10 +15,10 @@ import {
 } from './firebase.js';
 
 import {
-  initNotifications, setAppState, getPermissionStatus,
+  initNotifications, setAppState, setCurrentUser, getPermissionStatus,
   enableNotifications, disableNotifications,
   updateTypePrefs, updateDeadlinePrefs, testNotification,
-  renderNotifSettings
+  renderNotifSettings, clearNotifHistoryUI
 } from './notifications.js';
 
 // ============================================================
@@ -66,12 +66,14 @@ onAuthChange((user) => {
     if (dropEmail)  dropEmail.textContent = user.email || '';
 
     // Hanya load data jika user berbeda atau belum pernah load
+    setCurrentUser(user.uid);
     if (_lastLoadedUid !== user.uid) {
       _lastLoadedUid = user.uid;
       loadAllData();
     }
   } else {
     _lastLoadedUid = null;
+    setCurrentUser(null);
     // Mobile topbar
     document.getElementById("auth-logged-out").style.display = "block";
     document.getElementById("auth-logged-in").style.display = "none";
@@ -149,6 +151,7 @@ async function loadAllData() {
 
     renderAll();
     updateDashboard();
+    await initNotifications();
     showToast('✓ Data berhasil dimuat dari cloud');
   } catch (e) {
     console.error('[Trackify] loadAllData error:', e);
@@ -359,7 +362,7 @@ function initApp() {
   setDefaultFormDates();
   renderAll();
   renderDashboardDate();
-  initNotifications();
+  // initNotifications dipanggil di loadAllData() setelah user login
 }
 
 function setDefaultFormDates() {
@@ -2601,31 +2604,31 @@ async function toggleMasterNotif(checkbox) {
       setAppState(state);
     }
   } else {
-    disableNotifications();
+    await disableNotifications();
     showToast('✓ Notifikasi dimatikan');
   }
   renderNotifSettings();
 }
 
-function toggleNotifType(checkbox, type) {
-  updateTypePrefs(type, { enabled: checkbox.checked });
+async function toggleNotifType(checkbox, type) {
+  await updateTypePrefs(type, { enabled: checkbox.checked });
   renderNotifSettings();
 }
 
-function toggleNotifDeadline(checkbox, type) {
-  updateDeadlinePrefs(type, { enabled: checkbox.checked });
+async function toggleNotifDeadline(checkbox, type) {
+  await updateDeadlinePrefs(type, { enabled: checkbox.checked });
   renderNotifSettings();
 }
 
-function updateNotifTime(input, type) {
+async function updateNotifTime(input, type) {
   if (!input.value) return;
-  updateTypePrefs(type, { time: input.value });
+  await updateTypePrefs(type, { time: input.value });
 }
 
-function updateNotifAdvance(input, type) {
+async function updateNotifAdvance(input, type) {
   const val = parseInt(input.value);
   if (isNaN(val) || val < 0) return;
-  updateDeadlinePrefs(type, { advanceDays: val });
+  await updateDeadlinePrefs(type, { advanceDays: val });
 }
 
 function testNotif(type) {
@@ -2692,7 +2695,7 @@ Object.assign(window, {
 
   // Notifikasi
   toggleMasterNotif, toggleNotifType, toggleNotifDeadline,
-  updateNotifTime, updateNotifAdvance, testNotif,
+  updateNotifTime, updateNotifAdvance, testNotif, clearNotifHistoryUI,
 
   // Settings & Reset
   resetAllData, clearSectionData, updateSettingsPage,
@@ -2903,19 +2906,15 @@ const _ACTION_MAP = {
     () => { if (window.handleLogout) handleLogout(); },
 };
 
-document.addEventListener('click', function(e) {
-  const el = e.target.closest('[data-action]');
+function runDataAction(el, e) {
   if (!el) return;
   const action = el.getAttribute('data-action');
   if (!action) return;
-  e.stopPropagation();
-  // Jalankan action — kirim original event untuk stopPropagation cases
+  if (e && typeof e.stopPropagation === 'function') e.stopPropagation();
   const fn = _ACTION_MAP[action];
   if (fn) {
     fn(el, e);
   } else {
-    // Dynamic actions dari render (toggleTodoById, delTodo, editTodo, dll)
-    // Format: "fnName(arg)" — parse dan panggil dari window
     const m = action.match(/^(\w+)\((.*)?\)$/);
     if (m) {
       const fnName = m[1];
@@ -2923,7 +2922,6 @@ document.addEventListener('click', function(e) {
       const fn2 = window[fnName];
       if (typeof fn2 === 'function') {
         try {
-          // Parse args: handle quoted strings (may contain commas), numbers, 'this'
           const args = argStr === '' ? [] : (function parseArgs(s) {
             const result = []; let cur = ''; let inQ = false; let qChar = '';
             for (let i = 0; i < s.length; i++) {
@@ -2948,8 +2946,11 @@ document.addEventListener('click', function(e) {
       }
     }
   }
-}, true); // capture phase — sebelum extension bisa interfere
+}
 
+document.addEventListener('click', function(e) {
+  runDataAction(e.target.closest('[data-action]'), e);
+}, true); // capture phase
 // oninput untuk search
 document.addEventListener('input', function(e) {
   if (e.target.getAttribute('data-oninput') === 'runSearch') {
@@ -2966,7 +2967,13 @@ document.addEventListener('keydown', function(e) {
 
 // onchange untuk import file
 document.addEventListener('change', function(e) {
-  if (e.target.id === 'import-file-input') importData(e.target);
+  if (e.target.id === 'import-file-input') {
+    importData(e.target);
+    return;
+  }
+  if (e.target.matches('input[type="time"][data-action], input[type="number"][data-action], select[data-action]')) {
+    runDataAction(e.target, e);
+  }
 });
 
 // keyboard nav untuk metric cards

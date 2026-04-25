@@ -17,6 +17,8 @@
 
 'use strict';
 
+import { requestFCMPermission, initForegroundNotifications } from './fcm.js';
+
 const STORAGE_KEY       = 'Trackify_notifPrefs';
 const DEADLINE_SENT_KEY = 'Trackify_notifDeadlineSent';
 
@@ -209,7 +211,11 @@ function stopScheduler() {
 // ── Init / enable / disable ───────────────────────────────────
 export function initNotifications() {
   _prefs = loadPrefs();
-  if (_prefs.enabled && getPermissionStatus() === 'granted') startScheduler();
+  if (_prefs.enabled && getPermissionStatus() === 'granted') {
+    startScheduler();
+    // Init FCM foreground handler supaya notif tetap muncul saat app terbuka
+    initForegroundNotifications();
+  }
 }
 export function getPrefs() { return deepClone(_prefs); }
 
@@ -219,6 +225,17 @@ export async function enableNotifications() {
   _prefs.enabled = true;
   savePrefs();
   startScheduler();
+  // Request FCM permission & daftarkan service worker
+  try {
+    const token = await requestFCMPermission();
+    if (token) {
+      localStorage.setItem('fcm_token', token);
+      console.log('[Trackify] FCM token tersimpan:', token.slice(0, 20) + '...');
+    }
+    initForegroundNotifications();
+  } catch (e) {
+    console.warn('[Trackify] FCM setup gagal, fallback ke Browser API:', e);
+  }
   return 'granted';
 }
 export function disableNotifications() {

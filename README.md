@@ -10,7 +10,11 @@ Untuk notif tetap jalan saat tab ditutup, project ini memakai endpoint:
 Setup yang dibutuhkan:
 
 1. Set env `CRON_SECRET` di Vercel.
-2. Set env Firebase Admin di Vercel:
+2. Set env Firebase Admin di Vercel, pilih salah satu cara:
+   Cara paling mudah:
+   `FIREBASE_SERVICE_ACCOUNT_JSON`
+
+   Atau cara manual:
    `FIREBASE_PROJECT_ID`, `FIREBASE_CLIENT_EMAIL`, `FIREBASE_PRIVATE_KEY`.
 3. Buat job di `cron-job.org` yang memanggil:
    `https://your-domain.vercel.app/api/cron-send-reminders?secret=ISI_SECRET_KAMU`

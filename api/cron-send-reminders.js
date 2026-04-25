@@ -6,9 +6,11 @@ function isAuthorized(req) {
   const secret = process.env.CRON_SECRET;
   if (!secret) return true;
 
+  const url = new URL(req.url, 'http://localhost');
+  const querySecret = url.searchParams.get('secret') || '';
   const auth = req.headers.authorization || '';
   const bearer = auth.startsWith('Bearer ') ? auth.slice(7) : '';
-  return bearer === secret;
+  return bearer === secret || querySecret === secret;
 }
 
 export default async function handler(req, res) {

@@ -10,7 +10,30 @@ function parseJsonEnv(name, raw) {
   }
 }
 
+function parseBase64JsonEnv(name, raw) {
+  try {
+    const decoded = Buffer.from(raw, 'base64').toString('utf8');
+    return JSON.parse(decoded);
+  } catch (err) {
+    throw new Error(`${name} tidak valid base64 JSON: ${err.message}`);
+  }
+}
+
 function getServiceAccount() {
+  const fullJsonBase64 = process.env.FIREBASE_SERVICE_ACCOUNT_JSON_BASE64;
+  if (fullJsonBase64) {
+    const parsed = parseBase64JsonEnv('FIREBASE_SERVICE_ACCOUNT_JSON_BASE64', fullJsonBase64);
+    const projectId = parsed.project_id || parsed.projectId;
+    const clientEmail = parsed.client_email || parsed.clientEmail;
+    const privateKey = (parsed.private_key || parsed.privateKey || '').replace(/\\n/g, '\n');
+
+    if (!projectId || !clientEmail || !privateKey) {
+      throw new Error('FIREBASE_SERVICE_ACCOUNT_JSON_BASE64 wajib berisi project_id, client_email, dan private_key');
+    }
+
+    return { projectId, clientEmail, privateKey };
+  }
+
   const fullJson = process.env.FIREBASE_SERVICE_ACCOUNT_JSON;
   if (fullJson) {
     const parsed = parseJsonEnv('FIREBASE_SERVICE_ACCOUNT_JSON', fullJson);
